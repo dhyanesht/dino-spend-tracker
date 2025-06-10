@@ -19,14 +19,21 @@ const ExpenseOverview = () => {
     );
   }
 
-  // Calculate spending by category for current month
-  const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
-  const currentMonthTransactions = transactions.filter(t => 
-    t.date.startsWith(currentMonth) && t.type === 'expense'
+  // Get the last 3 months of data instead of just current month
+  const threeMonthsAgo = new Date();
+  threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+  const threeMonthsAgoKey = threeMonthsAgo.toISOString().slice(0, 7);
+
+  const recentTransactions = transactions.filter(t => 
+    t.date >= threeMonthsAgoKey && t.type === 'expense'
   );
 
+  // If no recent transactions, show all expenses
+  const displayTransactions = recentTransactions.length > 0 ? recentTransactions : 
+    transactions.filter(t => t.type === 'expense');
+
   const categorySpending = categories.map(cat => {
-    const spent = currentMonthTransactions
+    const spent = displayTransactions
       .filter(t => t.category === cat.name)
       .reduce((sum, t) => sum + Number(t.amount), 0);
     
@@ -38,30 +45,24 @@ const ExpenseOverview = () => {
     };
   }).filter(cat => cat.amount > 0);
 
-  // Calculate weekly trends for current month
+  // Calculate weekly trends for the display period
   const weeklyTrend = [];
-  for (let week = 1; week <= 4; week++) {
-    const weekStart = week === 1 ? 1 : (week - 1) * 7;
-    const weekEnd = week * 7;
-    
-    const weekTransactions = currentMonthTransactions.filter(t => {
-      const day = parseInt(t.date.split('-')[2]);
-      return day >= weekStart && day < weekEnd;
-    });
-    
+  const weeks = Math.min(12, Math.ceil(displayTransactions.length / 20)); // Show up to 12 weeks
+  
+  for (let week = 0; week < weeks; week++) {
+    const weekTransactions = displayTransactions.slice(week * 20, (week + 1) * 20);
     const weekSpending = weekTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
     weeklyTrend.push({
-      week: `Week ${week}`,
+      week: `Week ${week + 1}`,
       spending: weekSpending
     });
   }
 
   const totalSpending = categorySpending.reduce((sum, item) => sum + item.amount, 0);
   const totalBudget = categories.reduce((sum, cat) => sum + Number(cat.monthly_budget), 0);
-  const fixedExpenses = categories
-    .filter(cat => cat.type === 'fixed')
-    .reduce((sum, cat) => sum + Number(cat.monthly_budget), 0);
-  const variableExpenses = totalSpending - fixedExpenses;
+  const totalTransactions = displayTransactions.length;
+
+  const timeRangeText = recentTransactions.length > 0 ? 'Last 3 months' : 'All time';
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -70,17 +71,17 @@ const ExpenseOverview = () => {
         <Card className="p-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white">
           <h3 className="text-sm font-medium opacity-90">Total Spending</h3>
           <p className="text-2xl font-bold">${totalSpending.toFixed(2)}</p>
-          <p className="text-sm opacity-90 mt-1">This month</p>
+          <p className="text-sm opacity-90 mt-1">{timeRangeText}</p>
         </Card>
         <Card className="p-6 bg-gradient-to-r from-green-500 to-green-600 text-white">
-          <h3 className="text-sm font-medium opacity-90">Total Budget</h3>
-          <p className="text-2xl font-bold">${totalBudget.toFixed(2)}</p>
-          <p className="text-sm opacity-90 mt-1">Monthly budget</p>
+          <h3 className="text-sm font-medium opacity-90">Total Transactions</h3>
+          <p className="text-2xl font-bold">{totalTransactions}</p>
+          <p className="text-sm opacity-90 mt-1">Expense transactions</p>
         </Card>
         <Card className="p-6 bg-gradient-to-r from-purple-500 to-purple-600 text-white">
-          <h3 className="text-sm font-medium opacity-90">Remaining</h3>
-          <p className="text-2xl font-bold">${(totalBudget - totalSpending).toFixed(2)}</p>
-          <p className="text-sm opacity-90 mt-1">Available budget</p>
+          <h3 className="text-sm font-medium opacity-90">Monthly Budget</h3>
+          <p className="text-2xl font-bold">${totalBudget.toFixed(2)}</p>
+          <p className="text-sm opacity-90 mt-1">Total budget</p>
         </Card>
       </div>
 
@@ -107,23 +108,29 @@ const ExpenseOverview = () => {
           </ResponsiveContainer>
         ) : (
           <div className="h-64 flex items-center justify-center text-slate-500">
-            No expenses this month
+            No expenses found
           </div>
         )}
       </Card>
 
       {/* Bar Chart */}
       <Card className="p-6 lg:col-span-2">
-        <h3 className="text-lg font-semibold mb-4">Weekly Spending Trend</h3>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={weeklyTrend}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="week" />
-            <YAxis />
-            <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}`} />
-            <Bar dataKey="spending" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+        <h3 className="text-lg font-semibold mb-4">Spending Trend</h3>
+        {weeklyTrend.length > 0 ? (
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={weeklyTrend}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="week" />
+              <YAxis />
+              <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}`} />
+              <Bar dataKey="spending" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="h-64 flex items-center justify-center text-slate-500">
+            No transaction data available
+          </div>
+        )}
       </Card>
 
       {/* Category Breakdown */}
@@ -149,7 +156,7 @@ const ExpenseOverview = () => {
           ))}
           {categorySpending.length === 0 && (
             <div className="text-center text-slate-500 py-8">
-              No expenses recorded this month
+              No expenses recorded
             </div>
           )}
         </div>

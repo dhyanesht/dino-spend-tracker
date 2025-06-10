@@ -3,10 +3,11 @@ import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Upload, TrendingUp, PieChart, Calendar } from 'lucide-react';
+import { Upload, TrendingUp, PieChart, Calendar, List } from 'lucide-react';
 import ExpenseOverview from '@/components/dashboard/ExpenseOverview';
 import TrendsAnalysis from '@/components/dashboard/TrendsAnalysis';
 import CategoryManager from '@/components/dashboard/CategoryManager';
+import TransactionsList from '@/components/dashboard/TransactionsList';
 import CSVImporter from '@/components/dashboard/CSVImporter';
 
 const Dashboard = () => {
@@ -30,10 +31,14 @@ const Dashboard = () => {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-8">
+          <TabsList className="grid w-full grid-cols-5 mb-8">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <PieChart className="w-4 h-4" />
               Overview
+            </TabsTrigger>
+            <TabsTrigger value="transactions" className="flex items-center gap-2">
+              <List className="w-4 h-4" />
+              Transactions
             </TabsTrigger>
             <TabsTrigger value="trends" className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4" />
@@ -51,6 +56,10 @@ const Dashboard = () => {
 
           <TabsContent value="overview" className="space-y-6">
             <ExpenseOverview />
+          </TabsContent>
+
+          <TabsContent value="transactions" className="space-y-6">
+            <TransactionsList />
           </TabsContent>
 
           <TabsContent value="trends" className="space-y-6">
