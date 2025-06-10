@@ -293,13 +293,17 @@ const CSVImporter = () => {
                   <div>
                     <Label>Description Column *</Label>
                     <Select 
-                      value={columnMapping.description?.toString() || ''} 
-                      onValueChange={(value) => setColumnMapping(prev => ({ ...prev, description: parseInt(value) }))}
+                      value={columnMapping.description?.toString() || 'none'} 
+                      onValueChange={(value) => setColumnMapping(prev => ({ 
+                        ...prev, 
+                        description: value === 'none' ? null : parseInt(value) 
+                      }))}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select column" />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="none">Select a column</SelectItem>
                         {csvData[0]?.map((header, index) => (
                           <SelectItem key={index} value={index.toString()}>
                             Column {index + 1}: {header || `Column ${index + 1}`}
@@ -312,13 +316,17 @@ const CSVImporter = () => {
                   <div>
                     <Label>Amount Column *</Label>
                     <Select 
-                      value={columnMapping.amount?.toString() || ''} 
-                      onValueChange={(value) => setColumnMapping(prev => ({ ...prev, amount: parseInt(value) }))}
+                      value={columnMapping.amount?.toString() || 'none'} 
+                      onValueChange={(value) => setColumnMapping(prev => ({ 
+                        ...prev, 
+                        amount: value === 'none' ? null : parseInt(value) 
+                      }))}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select column" />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="none">Select a column</SelectItem>
                         {csvData[0]?.map((header, index) => (
                           <SelectItem key={index} value={index.toString()}>
                             Column {index + 1}: {header || `Column ${index + 1}`}
@@ -331,13 +339,17 @@ const CSVImporter = () => {
                   <div>
                     <Label>Date Column *</Label>
                     <Select 
-                      value={columnMapping.date?.toString() || ''} 
-                      onValueChange={(value) => setColumnMapping(prev => ({ ...prev, date: parseInt(value) }))}
+                      value={columnMapping.date?.toString() || 'none'} 
+                      onValueChange={(value) => setColumnMapping(prev => ({ 
+                        ...prev, 
+                        date: value === 'none' ? null : parseInt(value) 
+                      }))}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select column" />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="none">Select a column</SelectItem>
                         {csvData[0]?.map((header, index) => (
                           <SelectItem key={index} value={index.toString()}>
                             Column {index + 1}: {header || `Column ${index + 1}`}
@@ -350,14 +362,17 @@ const CSVImporter = () => {
                   <div>
                     <Label>Category Column (Optional)</Label>
                     <Select 
-                      value={columnMapping.category?.toString() || ''} 
-                      onValueChange={(value) => setColumnMapping(prev => ({ ...prev, category: value ? parseInt(value) : null }))}
+                      value={columnMapping.category?.toString() || 'none'} 
+                      onValueChange={(value) => setColumnMapping(prev => ({ 
+                        ...prev, 
+                        category: value === 'none' ? null : parseInt(value) 
+                      }))}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select column (optional)" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="none">None</SelectItem>
                         {csvData[0]?.map((header, index) => (
                           <SelectItem key={index} value={index.toString()}>
                             Column {index + 1}: {header || `Column ${index + 1}`}
