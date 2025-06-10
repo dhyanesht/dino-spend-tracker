@@ -16,12 +16,17 @@ export const useTransactions = () => {
   return useQuery({
     queryKey: ['transactions'],
     queryFn: async () => {
+      console.log('Fetching transactions...');
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
         .order('date', { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching transactions:', error);
+        throw error;
+      }
+      console.log('Transactions fetched:', data?.length, 'records');
       return data as Transaction[];
     },
   });
@@ -32,16 +37,47 @@ export const useAddTransaction = () => {
   
   return useMutation({
     mutationFn: async (transaction: Omit<Transaction, 'id' | 'created_at'>) => {
+      console.log('Adding transaction:', transaction);
       const { data, error } = await supabase
         .from('transactions')
         .insert([transaction])
         .select()
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error adding transaction:', error);
+        throw error;
+      }
+      console.log('Transaction added successfully:', data);
       return data;
     },
     onSuccess: () => {
+      console.log('Invalidating transactions query cache');
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+    },
+  });
+};
+
+export const useAddMultipleTransactions = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (transactions: Omit<Transaction, 'id' | 'created_at'>[]) => {
+      console.log('Adding multiple transactions:', transactions.length, 'records');
+      const { data, error } = await supabase
+        .from('transactions')
+        .insert(transactions)
+        .select();
+      
+      if (error) {
+        console.error('Error adding multiple transactions:', error);
+        throw error;
+      }
+      console.log('Multiple transactions added successfully:', data?.length, 'records');
+      return data;
+    },
+    onSuccess: (data) => {
+      console.log('Invalidating transactions query cache after bulk insert');
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
     },
   });
