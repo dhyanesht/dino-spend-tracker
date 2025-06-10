@@ -3,28 +3,23 @@ import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, ArrowLeft } from 'lucide-react';
-import { useCategories, useMainCategories, useSubCategories, useAddCategory, useDeleteCategory } from '@/hooks/useCategories';
+import { Plus } from 'lucide-react';
+import { useCategories, useAddCategory, useDeleteCategory } from '@/hooks/useCategories';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useToast } from '@/hooks/use-toast';
-import NavigationBreadcrumb from './NavigationBreadcrumb';
 import CategoryGrid from './CategoryGrid';
 import CategoryDialog from './CategoryDialog';
 
 const CategoryManager = () => {
-  const [selectedMainCategory, setSelectedMainCategory] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newCategory, setNewCategory] = useState({ 
     name: '', 
     type: 'variable' as 'fixed' | 'variable', 
     monthly_budget: 0, 
-    color: '#3B82F6',
-    parent_category: ''
+    color: '#3B82F6'
   });
 
   const { data: allCategories = [], isLoading } = useCategories();
-  const { data: mainCategories = [] } = useMainCategories();
-  const { data: subCategories = [] } = useSubCategories(selectedMainCategory || '');
   const { data: transactions = [] } = useTransactions();
   const addCategoryMutation = useAddCategory();
   const deleteCategoryMutation = useDeleteCategory();
@@ -53,13 +48,8 @@ const CategoryManager = () => {
     }
 
     try {
-      const categoryToAdd = {
-        ...newCategory,
-        parent_category: selectedMainCategory || newCategory.parent_category || undefined
-      };
-      
-      await addCategoryMutation.mutateAsync(categoryToAdd);
-      setNewCategory({ name: '', type: 'variable', monthly_budget: 0, color: '#3B82F6', parent_category: '' });
+      await addCategoryMutation.mutateAsync(newCategory);
+      setNewCategory({ name: '', type: 'variable', monthly_budget: 0, color: '#3B82F6' });
       setIsDialogOpen(false);
       toast({
         title: "Success",
@@ -90,13 +80,6 @@ const CategoryManager = () => {
     }
   };
 
-  const breadcrumbItems = selectedMainCategory 
-    ? [
-        { label: 'Categories', onClick: () => setSelectedMainCategory(null) },
-        { label: selectedMainCategory }
-      ]
-    : [{ label: 'Categories' }];
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -105,65 +88,43 @@ const CategoryManager = () => {
     );
   }
 
-  const categoriesToShow = selectedMainCategory ? subCategories : mainCategories;
-
   return (
     <div className="space-y-6">
-      <NavigationBreadcrumb items={breadcrumbItems} />
-      
       {/* Header */}
       <Card className="p-6">
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-xl font-semibold mb-2">
-              {selectedMainCategory ? `${selectedMainCategory} Subcategories` : 'Category Management'}
-            </h2>
+            <h2 className="text-xl font-semibold mb-2">Category Management</h2>
             <p className="text-slate-600">
-              {selectedMainCategory 
-                ? `Manage subcategories for ${selectedMainCategory}`
-                : 'Organize and track your spending categories'
-              }
+              Organize and track your spending categories
             </p>
           </div>
-          <div className="flex gap-2">
-            {selectedMainCategory && (
-              <Button 
-                variant="outline" 
-                onClick={() => setSelectedMainCategory(null)}
-                className="flex items-center gap-2"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Back to Main Categories
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-2">
+                <Plus className="w-4 h-4" />
+                Add Category
               </Button>
-            )}
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="flex items-center gap-2">
-                  <Plus className="w-4 h-4" />
-                  Add {selectedMainCategory ? 'Subcategory' : 'Category'}
-                </Button>
-              </DialogTrigger>
-              <CategoryDialog
-                isOpen={isDialogOpen}
-                onOpenChange={setIsDialogOpen}
-                selectedMainCategory={selectedMainCategory}
-                mainCategories={mainCategories}
-                newCategory={newCategory}
-                setNewCategory={setNewCategory}
-                onAddCategory={addCategory}
-                isAdding={addCategoryMutation.isPending}
-              />
-            </Dialog>
-          </div>
+            </DialogTrigger>
+            <CategoryDialog
+              isOpen={isDialogOpen}
+              onOpenChange={setIsDialogOpen}
+              selectedMainCategory={null}
+              mainCategories={[]}
+              newCategory={newCategory}
+              setNewCategory={setNewCategory}
+              onAddCategory={addCategory}
+              isAdding={addCategoryMutation.isPending}
+            />
+          </Dialog>
         </div>
       </Card>
 
       {/* Categories Grid */}
       <CategoryGrid
-        categories={categoriesToShow}
+        categories={allCategories}
         allCategories={allCategories}
         getSpentAmount={getSpentAmount}
-        onCategoryClick={setSelectedMainCategory}
         onDeleteCategory={deleteCategory}
         isDeleting={deleteCategoryMutation.isPending}
       />

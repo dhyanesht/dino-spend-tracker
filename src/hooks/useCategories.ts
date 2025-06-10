@@ -8,7 +8,6 @@ export interface Category {
   type: 'fixed' | 'variable';
   monthly_budget: number;
   color: string;
-  parent_category?: string;
   created_at: string;
 }
 
@@ -19,7 +18,6 @@ export const useCategories = () => {
       const { data, error } = await supabase
         .from('categories')
         .select('*')
-        .order('parent_category', { ascending: true })
         .order('name', { ascending: true });
       
       if (error) {
@@ -53,7 +51,6 @@ export const useAddCategory = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
-      queryClient.invalidateQueries({ queryKey: ['main-categories'] });
     },
   });
 };
@@ -77,48 +74,6 @@ export const useDeleteCategory = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
-      queryClient.invalidateQueries({ queryKey: ['main-categories'] });
     },
-  });
-};
-
-// Get main categories only
-export const useMainCategories = () => {
-  return useQuery({
-    queryKey: ['main-categories'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*')
-        .is('parent_category', null)
-        .order('name');
-      
-      if (error) {
-        console.error('Error fetching main categories:', error);
-        throw error;
-      }
-      return data as Category[];
-    },
-  });
-};
-
-// Get subcategories for a main category
-export const useSubCategories = (mainCategoryName: string) => {
-  return useQuery({
-    queryKey: ['subcategories', mainCategoryName],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*')
-        .eq('parent_category', mainCategoryName)
-        .order('name');
-      
-      if (error) {
-        console.error('Error fetching subcategories:', error);
-        throw error;
-      }
-      return data as Category[];
-    },
-    enabled: Boolean(mainCategoryName),
   });
 };
