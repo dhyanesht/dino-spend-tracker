@@ -119,6 +119,6 @@ export const useSubCategories = (mainCategoryName: string) => {
       }
       return data as Category[];
     },
-    enabled: !!mainCategoryName,
+    enabled: Boolean(mainCategoryName),
   });
 };
