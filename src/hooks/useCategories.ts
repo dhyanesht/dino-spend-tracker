@@ -15,7 +15,7 @@ export interface Category {
 export const useCategories = () => {
   return useQuery({
     queryKey: ['categories'],
-    queryFn: async (): Promise<Category[]> => {
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('categories')
         .select('*')
@@ -86,7 +86,7 @@ export const useDeleteCategory = () => {
 export const useMainCategories = () => {
   return useQuery({
     queryKey: ['main-categories'],
-    queryFn: async (): Promise<Category[]> => {
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('categories')
         .select('*')
@@ -106,7 +106,7 @@ export const useMainCategories = () => {
 export const useSubCategories = (mainCategoryName: string) => {
   return useQuery({
     queryKey: ['subcategories', mainCategoryName],
-    queryFn: async (): Promise<Category[]> => {
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('categories')
         .select('*')
