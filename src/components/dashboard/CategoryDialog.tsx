@@ -17,7 +17,6 @@ interface CategoryDialogProps {
     type: 'fixed' | 'variable';
     monthly_budget: number;
     color: string;
-    parent_category: string;
   };
   setNewCategory: (category: any) => void;
   onAddCategory: () => void;
@@ -39,7 +38,7 @@ const CategoryDialog = ({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            Create New {selectedMainCategory ? 'Subcategory' : 'Category'}
+            Create New Category
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 pt-4">
@@ -49,31 +48,9 @@ const CategoryDialog = ({
               id="categoryName"
               value={newCategory.name}
               onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
-              placeholder={selectedMainCategory ? "e.g., Groceries, Gas" : "e.g., Entertainment, Transportation"}
+              placeholder="e.g., Entertainment, Transportation"
             />
           </div>
-          
-          {!selectedMainCategory && (
-            <div>
-              <Label htmlFor="parentCategory">Parent Category (Optional)</Label>
-              <Select 
-                value={newCategory.parent_category} 
-                onValueChange={(value) => setNewCategory({ ...newCategory, parent_category: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select parent category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">None (Main Category)</SelectItem>
-                  {mainCategories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.name}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
           
           <div>
             <Label htmlFor="categoryType">Type</Label>
