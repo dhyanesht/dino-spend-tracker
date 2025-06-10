@@ -15,7 +15,7 @@ export interface Category {
 export const useCategories = () => {
   return useQuery({
     queryKey: ['categories'],
-    queryFn: async () => {
+    queryFn: async (): Promise<Category[]> => {
       const { data, error } = await supabase
         .from('categories')
         .select('*')
@@ -53,6 +53,7 @@ export const useAddCategory = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ['main-categories'] });
     },
   });
 };
@@ -76,6 +77,7 @@ export const useDeleteCategory = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ['main-categories'] });
     },
   });
 };
@@ -84,7 +86,7 @@ export const useDeleteCategory = () => {
 export const useMainCategories = () => {
   return useQuery({
     queryKey: ['main-categories'],
-    queryFn: async () => {
+    queryFn: async (): Promise<Category[]> => {
       const { data, error } = await supabase
         .from('categories')
         .select('*')
@@ -104,7 +106,7 @@ export const useMainCategories = () => {
 export const useSubCategories = (mainCategoryName: string) => {
   return useQuery({
     queryKey: ['subcategories', mainCategoryName],
-    queryFn: async () => {
+    queryFn: async (): Promise<Category[]> => {
       const { data, error } = await supabase
         .from('categories')
         .select('*')
