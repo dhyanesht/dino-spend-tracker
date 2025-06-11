@@ -1,101 +1,87 @@
-
 import React, { useState } from 'react';
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogTrigger } from '@/components/ui/dialog';
-import { Plus } from 'lucide-react';
+import { Plus, ArrowLeft } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCategories, useParentCategories, useSubcategories, useAddCategory, useDeleteCategory } from '@/hooks/useCategories';
 import { useTransactions } from '@/hooks/useTransactions';
-import { useToast } from '@/hooks/use-toast';
 import CategoryGrid from './CategoryGrid';
 import CategoryDialog from './CategoryDialog';
+import StoreManager from './StoreManager';
+import { toast } from 'sonner';
 
 const CategoryManager = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedMainCategory, setSelectedMainCategory] = useState<string | null>(null);
-  const [newCategory, setNewCategory] = useState({ 
-    name: '', 
-    type: 'variable' as 'fixed' | 'variable', 
-    monthly_budget: 0, 
+  const [newCategory, setNewCategory] = useState({
+    name: '',
+    type: 'variable' as 'fixed' | 'variable',
+    monthly_budget: 0,
     color: '#3B82F6',
-    parent_category: null as string | null
+    parent_category: null as string | null,
   });
 
-  const { data: allCategories = [], isLoading } = useCategories();
-  const { data: parentCategories = [] } = useParentCategories();
-  const { data: subcategories = [] } = useSubcategories();
+  const { data: allCategories = [], isLoading: categoriesLoading } = useCategories();
+  const { data: parentCategories = [], isLoading: parentLoading } = useParentCategories();
+  const { data: subcategories = [], isLoading: subcategoriesLoading } = useSubcategories();
   const { data: transactions = [] } = useTransactions();
-  const addCategoryMutation = useAddCategory();
-  const deleteCategoryMutation = useDeleteCategory();
-  const { toast } = useToast();
-
-  // Calculate current month spending for categories
-  const currentMonth = new Date().toISOString().slice(0, 7);
-  const currentMonthTransactions = transactions.filter(t => 
-    t.date.startsWith(currentMonth) && t.type === 'expense'
-  );
+  const addCategory = useAddCategory();
+  const deleteCategory = useDeleteCategory();
 
   const getSpentAmount = (categoryName: string) => {
-    return currentMonthTransactions
-      .filter(t => t.category === categoryName)
+    return transactions
+      .filter(t => t.category === categoryName && t.type === 'expense')
       .reduce((sum, t) => sum + Number(t.amount), 0);
   };
 
-  const getParentCategorySpentAmount = (parentCategoryName: string) => {
-    const relatedSubcategories = subcategories.filter(sub => sub.parent_category === parentCategoryName);
-    return currentMonthTransactions
-      .filter(t => relatedSubcategories.some(sub => sub.name === t.category))
-      .reduce((sum, t) => sum + Number(t.amount), 0);
+  const handleCategoryClick = (categoryName: string) => {
+    setSelectedMainCategory(categoryName);
   };
 
-  const addCategory = async () => {
+  const handleBackToParentCategories = () => {
+    setSelectedMainCategory(null);
+  };
+
+  const handleAddCategory = async () => {
     if (!newCategory.name.trim()) {
-      toast({
-        title: "Error",
-        description: "Category name is required",
-        variant: "destructive",
-      });
+      toast.error('Please enter a category name');
       return;
     }
 
     try {
-      await addCategoryMutation.mutateAsync(newCategory);
-      setNewCategory({ name: '', type: 'variable', monthly_budget: 0, color: '#3B82F6', parent_category: null });
+      await addCategory.mutateAsync(newCategory);
+      toast.success('Category created successfully!');
       setIsDialogOpen(false);
-      toast({
-        title: "Success",
-        description: "Category created successfully",
+      setNewCategory({
+        name: '',
+        type: 'variable',
+        monthly_budget: 0,
+        color: '#3B82F6',
+        parent_category: null,
       });
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to create category",
-        variant: "destructive",
-      });
+      console.error('Error creating category:', error);
+      toast.error('Failed to create category');
     }
   };
 
-  const deleteCategory = async (id: string) => {
+  const handleDeleteCategory = async (categoryId: string) => {
     try {
-      await deleteCategoryMutation.mutateAsync(id);
-      toast({
-        title: "Success",
-        description: "Category deleted successfully",
-      });
+      await deleteCategory.mutateAsync(categoryId);
+      toast.success('Category deleted successfully!');
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete category",
-        variant: "destructive",
-      });
+      console.error('Error deleting category:', error);
+      toast.error('Failed to delete category');
     }
   };
 
-  const handleParentCategoryClick = (parentCategoryName: string) => {
-    setSelectedMainCategory(selectedMainCategory === parentCategoryName ? null : parentCategoryName);
+  const getCurrentCategories = () => {
+    if (selectedMainCategory) {
+      return subcategories.filter(cat => cat.parent_category === selectedMainCategory);
+    }
+    return parentCategories;
   };
 
-  if (isLoading) {
+  if (categoriesLoading || parentLoading || subcategoriesLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full"></div>
@@ -103,63 +89,70 @@ const CategoryManager = () => {
     );
   }
 
-  const displayCategories = selectedMainCategory 
-    ? subcategories.filter(cat => cat.parent_category === selectedMainCategory)
-    : parentCategories;
-
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <Card className="p-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-xl font-semibold mb-2">Category Management</h2>
-            <p className="text-slate-600">
-              {selectedMainCategory 
-                ? `Subcategories in ${selectedMainCategory}`
-                : 'Organize and track your spending categories'}
-            </p>
-            {selectedMainCategory && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setSelectedMainCategory(null)}
-                className="mt-2"
-              >
-                ← Back to Parent Categories
-              </Button>
-            )}
-          </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="flex items-center gap-2">
-                <Plus className="w-4 h-4" />
-                Add Category
-              </Button>
-            </DialogTrigger>
-            <CategoryDialog
-              isOpen={isDialogOpen}
-              onOpenChange={setIsDialogOpen}
-              selectedMainCategory={selectedMainCategory}
-              mainCategories={parentCategories}
-              newCategory={newCategory}
-              setNewCategory={setNewCategory}
-              onAddCategory={addCategory}
-              isAdding={addCategoryMutation.isPending}
-            />
-          </Dialog>
-        </div>
-      </Card>
+      <Tabs defaultValue="categories" className="w-full">
+        <TabsList>
+          <TabsTrigger value="categories">Categories</TabsTrigger>
+          <TabsTrigger value="stores">Store Mappings</TabsTrigger>
+        </TabsList>
 
-      {/* Categories Grid */}
-      <CategoryGrid
-        categories={displayCategories}
-        allCategories={allCategories}
-        getSpentAmount={selectedMainCategory ? getSpentAmount : getParentCategorySpentAmount}
-        onDeleteCategory={deleteCategory}
-        onClick={selectedMainCategory ? undefined : handleParentCategoryClick}
-        isDeleting={deleteCategoryMutation.isPending}
-      />
+        <TabsContent value="categories" className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              {selectedMainCategory && (
+                <Button
+                  variant="outline"
+                  onClick={handleBackToParentCategories}
+                  className="flex items-center gap-2"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back to Categories
+                </Button>
+              )}
+              <div>
+                <h2 className="text-2xl font-semibold">
+                  {selectedMainCategory ? `${selectedMainCategory} Subcategories` : 'Expense Categories'}
+                </h2>
+                <p className="text-slate-600">
+                  {selectedMainCategory 
+                    ? `Manage subcategories within ${selectedMainCategory}`
+                    : 'Manage your expense categories and budgets'
+                  }
+                </p>
+              </div>
+            </div>
+            <Button onClick={() => setIsDialogOpen(true)} className="flex items-center gap-2">
+              <Plus className="w-4 h-4" />
+              Add Category
+            </Button>
+          </div>
+
+          <CategoryGrid
+            categories={getCurrentCategories()}
+            allCategories={allCategories}
+            getSpentAmount={getSpentAmount}
+            onDeleteCategory={handleDeleteCategory}
+            onClick={selectedMainCategory ? undefined : handleCategoryClick}
+            isDeleting={deleteCategory.isPending}
+          />
+
+          <CategoryDialog
+            isOpen={isDialogOpen}
+            onOpenChange={setIsDialogOpen}
+            selectedMainCategory={selectedMainCategory}
+            mainCategories={parentCategories}
+            newCategory={newCategory}
+            setNewCategory={setNewCategory}
+            onAddCategory={handleAddCategory}
+            isAdding={addCategory.isPending}
+          />
+        </TabsContent>
+
+        <TabsContent value="stores" className="space-y-6">
+          <StoreManager />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

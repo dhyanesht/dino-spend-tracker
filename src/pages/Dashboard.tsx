@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,7 @@ import TrendsAnalysis from '@/components/dashboard/TrendsAnalysis';
 import CategoryManager from '@/components/dashboard/CategoryManager';
 import TransactionsList from '@/components/dashboard/TransactionsList';
 import CSVImporter from '@/components/dashboard/CSVImporter';
+import SmartTransactionDialog from '@/components/dashboard/SmartTransactionDialog';
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -23,7 +23,10 @@ const Dashboard = () => {
               <h1 className="text-2xl font-bold text-slate-900">Dino's Spending Tracker</h1>
               <p className="text-slate-600 mt-1">Smart expense management made simple</p>
             </div>
-            <CSVImporter />
+            <div className="flex items-center gap-3">
+              <SmartTransactionDialog />
+              <CSVImporter />
+            </div>
           </div>
         </div>
       </header>
@@ -77,7 +80,7 @@ const Dashboard = () => {
                 <h2 className="text-xl font-semibold mb-2">Import Your Financial Data</h2>
                 <p className="text-slate-600 mb-6">
                   Upload CSV files from your banks and credit cards. Our system will automatically
-                  detect the format and categorize your transactions.
+                  detect the format and categorize your transactions using your store preferences.
                 </p>
                 <CSVImporter />
               </div>
