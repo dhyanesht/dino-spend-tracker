@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useTransactions } from '@/hooks/useTransactions';
-import { useCategories } from '@/hooks/useCategories';
+import { useSubcategories } from '@/hooks/useCategories';
 
 const TransactionsList = () => {
   const [filterCategory, setFilterCategory] = useState('all');
@@ -14,9 +14,9 @@ const TransactionsList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   
   const { data: transactions = [], isLoading: transactionsLoading } = useTransactions();
-  const { data: categories = [], isLoading: categoriesLoading } = useCategories();
+  const { data: subcategories = [], isLoading: subcategoriesLoading } = useSubcategories();
 
-  if (transactionsLoading || categoriesLoading) {
+  if (transactionsLoading || subcategoriesLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full"></div>
@@ -35,8 +35,13 @@ const TransactionsList = () => {
   });
 
   const getCategoryColor = (categoryName: string) => {
-    const category = categories.find(cat => cat.name === categoryName);
-    return category?.color || '#6B7280';
+    const subcategory = subcategories.find(cat => cat.name === categoryName);
+    return subcategory?.color || '#6B7280';
+  };
+
+  const getParentCategory = (categoryName: string) => {
+    const subcategory = subcategories.find(cat => cat.name === categoryName);
+    return subcategory?.parent_category || null;
   };
 
   return (
@@ -64,9 +69,12 @@ const TransactionsList = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
-                {categories.map((category) => (
+                {subcategories.map((category) => (
                   <SelectItem key={category.id} value={category.name}>
                     {category.name}
+                    {category.parent_category && (
+                      <span className="text-slate-500 text-sm"> ({category.parent_category})</span>
+                    )}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -92,6 +100,7 @@ const TransactionsList = () => {
                 <TableHead>Date</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead>Category</TableHead>
+                <TableHead>Parent Category</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
               </TableRow>
@@ -114,6 +123,11 @@ const TransactionsList = () => {
                       </div>
                     </TableCell>
                     <TableCell>
+                      <span className="text-slate-600">
+                        {getParentCategory(transaction.category) || 'N/A'}
+                      </span>
+                    </TableCell>
+                    <TableCell>
                       <Badge variant={transaction.type === 'expense' ? 'destructive' : 'default'}>
                         {transaction.type}
                       </Badge>
@@ -127,7 +141,7 @@ const TransactionsList = () => {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-slate-500">
+                  <TableCell colSpan={6} className="text-center py-8 text-slate-500">
                     No transactions found matching your filters
                   </TableCell>
                 </TableRow>

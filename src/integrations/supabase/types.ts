@@ -16,6 +16,7 @@ export type Database = {
           id: string
           monthly_budget: number | null
           name: string
+          parent_category: string | null
           type: string
         }
         Insert: {
@@ -24,6 +25,7 @@ export type Database = {
           id?: string
           monthly_budget?: number | null
           name: string
+          parent_category?: string | null
           type: string
         }
         Update: {
@@ -32,6 +34,7 @@ export type Database = {
           id?: string
           monthly_budget?: number | null
           name?: string
+          parent_category?: string | null
           type?: string
         }
         Relationships: []

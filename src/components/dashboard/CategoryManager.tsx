@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 import { Plus } from 'lucide-react';
-import { useCategories, useAddCategory, useDeleteCategory } from '@/hooks/useCategories';
+import { useCategories, useParentCategories, useSubcategories, useAddCategory, useDeleteCategory } from '@/hooks/useCategories';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useToast } from '@/hooks/use-toast';
 import CategoryGrid from './CategoryGrid';
@@ -12,14 +12,18 @@ import CategoryDialog from './CategoryDialog';
 
 const CategoryManager = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedMainCategory, setSelectedMainCategory] = useState<string | null>(null);
   const [newCategory, setNewCategory] = useState({ 
     name: '', 
     type: 'variable' as 'fixed' | 'variable', 
     monthly_budget: 0, 
-    color: '#3B82F6'
+    color: '#3B82F6',
+    parent_category: null as string | null
   });
 
   const { data: allCategories = [], isLoading } = useCategories();
+  const { data: parentCategories = [] } = useParentCategories();
+  const { data: subcategories = [] } = useSubcategories();
   const { data: transactions = [] } = useTransactions();
   const addCategoryMutation = useAddCategory();
   const deleteCategoryMutation = useDeleteCategory();
@@ -37,6 +41,13 @@ const CategoryManager = () => {
       .reduce((sum, t) => sum + Number(t.amount), 0);
   };
 
+  const getParentCategorySpentAmount = (parentCategoryName: string) => {
+    const relatedSubcategories = subcategories.filter(sub => sub.parent_category === parentCategoryName);
+    return currentMonthTransactions
+      .filter(t => relatedSubcategories.some(sub => sub.name === t.category))
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+  };
+
   const addCategory = async () => {
     if (!newCategory.name.trim()) {
       toast({
@@ -49,7 +60,7 @@ const CategoryManager = () => {
 
     try {
       await addCategoryMutation.mutateAsync(newCategory);
-      setNewCategory({ name: '', type: 'variable', monthly_budget: 0, color: '#3B82F6' });
+      setNewCategory({ name: '', type: 'variable', monthly_budget: 0, color: '#3B82F6', parent_category: null });
       setIsDialogOpen(false);
       toast({
         title: "Success",
@@ -80,6 +91,10 @@ const CategoryManager = () => {
     }
   };
 
+  const handleParentCategoryClick = (parentCategoryName: string) => {
+    setSelectedMainCategory(selectedMainCategory === parentCategoryName ? null : parentCategoryName);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -87,6 +102,10 @@ const CategoryManager = () => {
       </div>
     );
   }
+
+  const displayCategories = selectedMainCategory 
+    ? subcategories.filter(cat => cat.parent_category === selectedMainCategory)
+    : parentCategories;
 
   return (
     <div className="space-y-6">
@@ -96,8 +115,20 @@ const CategoryManager = () => {
           <div>
             <h2 className="text-xl font-semibold mb-2">Category Management</h2>
             <p className="text-slate-600">
-              Organize and track your spending categories
+              {selectedMainCategory 
+                ? `Subcategories in ${selectedMainCategory}`
+                : 'Organize and track your spending categories'}
             </p>
+            {selectedMainCategory && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setSelectedMainCategory(null)}
+                className="mt-2"
+              >
+                ← Back to Parent Categories
+              </Button>
+            )}
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
@@ -109,8 +140,8 @@ const CategoryManager = () => {
             <CategoryDialog
               isOpen={isDialogOpen}
               onOpenChange={setIsDialogOpen}
-              selectedMainCategory={null}
-              mainCategories={[]}
+              selectedMainCategory={selectedMainCategory}
+              mainCategories={parentCategories}
               newCategory={newCategory}
               setNewCategory={setNewCategory}
               onAddCategory={addCategory}
@@ -122,10 +153,11 @@ const CategoryManager = () => {
 
       {/* Categories Grid */}
       <CategoryGrid
-        categories={allCategories}
+        categories={displayCategories}
         allCategories={allCategories}
-        getSpentAmount={getSpentAmount}
+        getSpentAmount={selectedMainCategory ? getSpentAmount : getParentCategorySpentAmount}
         onDeleteCategory={deleteCategory}
+        onClick={selectedMainCategory ? undefined : handleParentCategoryClick}
         isDeleting={deleteCategoryMutation.isPending}
       />
     </div>

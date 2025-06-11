@@ -3,13 +3,14 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { useTransactions } from '@/hooks/useTransactions';
-import { useCategories } from '@/hooks/useCategories';
+import { useCategories, useParentCategories, useSubcategories } from '@/hooks/useCategories';
 
 const ExpenseOverview = () => {
   const { data: transactions = [], isLoading: transactionsLoading } = useTransactions();
-  const { data: categories = [], isLoading: categoriesLoading } = useCategories();
+  const { data: parentCategories = [], isLoading: parentCategoriesLoading } = useParentCategories();
+  const { data: subcategories = [], isLoading: subcategoriesLoading } = useSubcategories();
 
-  if (transactionsLoading || categoriesLoading) {
+  if (transactionsLoading || parentCategoriesLoading || subcategoriesLoading) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-3 flex items-center justify-center h-64">
@@ -32,16 +33,34 @@ const ExpenseOverview = () => {
   const displayTransactions = recentTransactions.length > 0 ? recentTransactions : 
     transactions.filter(t => t.type === 'expense');
 
-  const categorySpending = categories.map(cat => {
+  // Create a mapping of subcategory to parent category
+  const subcategoryToParent = subcategories.reduce((acc, sub) => {
+    acc[sub.name] = sub.parent_category;
+    return acc;
+  }, {} as Record<string, string | null>);
+
+  // Aggregate spending by parent categories
+  const parentCategorySpending = parentCategories.map(parentCat => {
+    // Get all subcategories for this parent
+    const relatedSubcategories = subcategories.filter(sub => sub.parent_category === parentCat.name);
+    
+    // Calculate total spending for this parent category
     const spent = displayTransactions
-      .filter(t => t.category === cat.name)
+      .filter(t => {
+        // Check if transaction category is a subcategory of this parent
+        return relatedSubcategories.some(sub => sub.name === t.category);
+      })
       .reduce((sum, t) => sum + Number(t.amount), 0);
     
+    // Calculate total budget for this parent category (sum of all subcategory budgets)
+    const totalBudget = relatedSubcategories.reduce((sum, sub) => sum + Number(sub.monthly_budget), 0);
+    
     return {
-      category: cat.name,
+      category: parentCat.name,
       amount: spent,
-      color: cat.color,
-      budget: Number(cat.monthly_budget)
+      color: parentCat.color,
+      budget: totalBudget,
+      subcategoryCount: relatedSubcategories.length
     };
   }).filter(cat => cat.amount > 0);
 
@@ -58,8 +77,11 @@ const ExpenseOverview = () => {
     });
   }
 
-  const totalSpending = categorySpending.reduce((sum, item) => sum + item.amount, 0);
-  const totalBudget = categories.reduce((sum, cat) => sum + Number(cat.monthly_budget), 0);
+  const totalSpending = parentCategorySpending.reduce((sum, item) => sum + item.amount, 0);
+  const totalBudget = parentCategories.reduce((sum, cat) => {
+    const relatedSubcategories = subcategories.filter(sub => sub.parent_category === cat.name);
+    return sum + relatedSubcategories.reduce((subSum, sub) => subSum + Number(sub.monthly_budget), 0);
+  }, 0);
   const totalTransactions = displayTransactions.length;
 
   const timeRangeText = recentTransactions.length > 0 ? 'Last 3 months' : 'All time';
@@ -88,18 +110,18 @@ const ExpenseOverview = () => {
       {/* Pie Chart */}
       <Card className="p-6 lg:col-span-1">
         <h3 className="text-lg font-semibold mb-4">Spending by Category</h3>
-        {categorySpending.length > 0 ? (
+        {parentCategorySpending.length > 0 ? (
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
-                data={categorySpending}
+                data={parentCategorySpending}
                 cx="50%"
                 cy="50%"
                 outerRadius={80}
                 dataKey="amount"
                 label={({ category, amount }) => `${category}: $${amount.toFixed(0)}`}
               >
-                {categorySpending.map((entry, index) => (
+                {parentCategorySpending.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
@@ -135,16 +157,21 @@ const ExpenseOverview = () => {
 
       {/* Category Breakdown */}
       <Card className="p-6 lg:col-span-3">
-        <h3 className="text-lg font-semibold mb-4">Category Breakdown</h3>
+        <h3 className="text-lg font-semibold mb-4">Parent Category Breakdown</h3>
         <div className="space-y-3">
-          {categorySpending.map((category, index) => (
+          {parentCategorySpending.map((category, index) => (
             <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
               <div className="flex items-center gap-3">
                 <div 
                   className="w-4 h-4 rounded-full" 
                   style={{ backgroundColor: category.color }}
                 ></div>
-                <span className="font-medium">{category.category}</span>
+                <div>
+                  <span className="font-medium">{category.category}</span>
+                  <div className="text-sm text-slate-500">
+                    {category.subcategoryCount} subcategories
+                  </div>
+                </div>
               </div>
               <div className="text-right">
                 <span className="font-semibold">${category.amount.toFixed(2)}</span>
@@ -154,7 +181,7 @@ const ExpenseOverview = () => {
               </div>
             </div>
           ))}
-          {categorySpending.length === 0 && (
+          {parentCategorySpending.length === 0 && (
             <div className="text-center text-slate-500 py-8">
               No expenses recorded
             </div>

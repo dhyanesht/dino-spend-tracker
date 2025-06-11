@@ -17,6 +17,7 @@ interface CategoryDialogProps {
     type: 'fixed' | 'variable';
     monthly_budget: number;
     color: string;
+    parent_category: string | null;
   };
   setNewCategory: (category: any) => void;
   onAddCategory: () => void;
@@ -33,12 +34,30 @@ const CategoryDialog = ({
   onAddCategory,
   isAdding
 }: CategoryDialogProps) => {
+  const isCreatingSubcategory = selectedMainCategory !== null;
+
+  React.useEffect(() => {
+    if (isCreatingSubcategory) {
+      setNewCategory({ 
+        ...newCategory, 
+        parent_category: selectedMainCategory 
+      });
+    } else {
+      setNewCategory({ 
+        ...newCategory, 
+        parent_category: null 
+      });
+    }
+  }, [selectedMainCategory, isCreatingSubcategory]);
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            Create New Category
+            {isCreatingSubcategory 
+              ? `Create New Subcategory in ${selectedMainCategory}` 
+              : 'Create New Category'}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 pt-4">
@@ -48,9 +67,37 @@ const CategoryDialog = ({
               id="categoryName"
               value={newCategory.name}
               onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
-              placeholder="e.g., Entertainment, Transportation"
+              placeholder={isCreatingSubcategory 
+                ? "e.g., Groceries, Gas, Movies" 
+                : "e.g., Everyday, Transportation, Entertainment"
+              }
             />
           </div>
+          
+          {!isCreatingSubcategory && (
+            <div>
+              <Label htmlFor="parentCategory">Parent Category (Optional)</Label>
+              <Select 
+                value={newCategory.parent_category || 'none'} 
+                onValueChange={(value) => setNewCategory({ 
+                  ...newCategory, 
+                  parent_category: value === 'none' ? null : value 
+                })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Create as Parent Category</SelectItem>
+                  {mainCategories.map((category) => (
+                    <SelectItem key={category.id} value={category.name}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           
           <div>
             <Label htmlFor="categoryType">Type</Label>

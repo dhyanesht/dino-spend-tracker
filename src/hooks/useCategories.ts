@@ -9,6 +9,7 @@ export interface Category {
   monthly_budget: number;
   color: string;
   created_at: string;
+  parent_category: string | null;
 }
 
 export const useCategories = () => {
@@ -25,6 +26,47 @@ export const useCategories = () => {
         throw error;
       }
       console.log('Categories fetched:', data);
+      return data as Category[];
+    },
+  });
+};
+
+export const useParentCategories = () => {
+  return useQuery({
+    queryKey: ['parent-categories'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .is('parent_category', null)
+        .order('name', { ascending: true });
+      
+      if (error) {
+        console.error('Error fetching parent categories:', error);
+        throw error;
+      }
+      console.log('Parent categories fetched:', data);
+      return data as Category[];
+    },
+  });
+};
+
+export const useSubcategories = () => {
+  return useQuery({
+    queryKey: ['subcategories'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .not('parent_category', 'is', null)
+        .order('parent_category', { ascending: true })
+        .order('name', { ascending: true });
+      
+      if (error) {
+        console.error('Error fetching subcategories:', error);
+        throw error;
+      }
+      console.log('Subcategories fetched:', data);
       return data as Category[];
     },
   });
@@ -51,6 +93,8 @@ export const useAddCategory = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ['parent-categories'] });
+      queryClient.invalidateQueries({ queryKey: ['subcategories'] });
     },
   });
 };
@@ -74,6 +118,8 @@ export const useDeleteCategory = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ['parent-categories'] });
+      queryClient.invalidateQueries({ queryKey: ['subcategories'] });
     },
   });
 };
