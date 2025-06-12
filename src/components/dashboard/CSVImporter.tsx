@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -6,9 +5,11 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Upload, FileText, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Upload, FileText, CheckCircle, XCircle, AlertCircle, Edit2, Save, X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { useAddMultipleTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
+import { useStores, useAddStore, findBestStoreMatch, extractStoreName } from '@/hooks/useStores';
 import { useToast } from '@/hooks/use-toast';
 
 interface ParsedTransaction {
@@ -17,6 +18,14 @@ interface ParsedTransaction {
   category: string;
   date: string;
   type: 'expense' | 'income';
+  storeName?: string;
+  matchedStore?: boolean;
+}
+
+interface UnmatchedStore {
+  name: string;
+  category: string;
+  count: number;
 }
 
 interface ColumnMapping {
@@ -40,12 +49,17 @@ const CSVImporter = () => {
   const [parseResults, setParseResults] = useState<{
     success: ParsedTransaction[];
     errors: { row: number; error: string; data: string[] }[];
+    unmatchedStores: UnmatchedStore[];
   } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [editingStore, setEditingStore] = useState<string | null>(null);
+  const [editCategory, setEditCategory] = useState('');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const addTransactionsMutation = useAddMultipleTransactions();
+  const addStoreMutation = useAddStore();
   const { data: categories = [] } = useCategories();
+  const { data: stores = [] } = useStores();
   const { toast } = useToast();
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -132,7 +146,7 @@ const CSVImporter = () => {
 
     const success: ParsedTransaction[] = [];
     const errors: { row: number; error: string; data: string[] }[] = [];
-    const categoryNames = categories.map(cat => cat.name.toLowerCase());
+    const unmatchedStores: Map<string, UnmatchedStore> = new Map();
 
     csvData.forEach((row, index) => {
       try {
@@ -142,7 +156,7 @@ const CSVImporter = () => {
         const desc = row[description]?.trim();
         const amountStr = row[amount]?.trim().replace(/[,$]/g, '');
         const dateStr = row[date]?.trim();
-        const categoryStr = category !== null ? row[category]?.trim() : 'Other';
+        const categoryStr = category !== null ? row[category]?.trim() : '';
         const typeStr = type !== null ? row[type]?.trim().toLowerCase() : 'expense';
 
         if (!desc || !amountStr || !dateStr) {
@@ -167,7 +181,6 @@ const CSVImporter = () => {
         // Parse date (support multiple formats)
         let parsedDate: Date;
         try {
-          // Try common date formats
           if (dateStr.includes('/')) {
             const [month, day, year] = dateStr.split('/');
             parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
@@ -189,15 +202,36 @@ const CSVImporter = () => {
           return;
         }
 
-        // Auto-match category or default to 'Other'
+        // Smart store matching and categorization
+        const extractedStoreName = extractStoreName(desc);
+        const matchedStore = findBestStoreMatch(desc, stores);
+        
         let finalCategory = 'Other';
-        if (categoryStr) {
-          const matchedCategory = categories.find(cat => 
-            cat.name.toLowerCase() === categoryStr.toLowerCase() ||
-            cat.name.toLowerCase().includes(categoryStr.toLowerCase())
+        let storeName = extractedStoreName;
+        let matchedStoreFlag = false;
+
+        if (matchedStore) {
+          // Found a matching store, use its category
+          finalCategory = matchedStore.category_name;
+          storeName = matchedStore.name;
+          matchedStoreFlag = true;
+        } else if (categoryStr) {
+          // Manual category provided in CSV
+          const foundCategory = categories.find(cat => 
+            cat.name.toLowerCase() === categoryStr.toLowerCase()
           );
-          if (matchedCategory) {
-            finalCategory = matchedCategory.name;
+          finalCategory = foundCategory ? foundCategory.name : 'Other';
+        } else {
+          // No match found, track as unmatched store
+          if (storeName && !unmatchedStores.has(storeName)) {
+            unmatchedStores.set(storeName, {
+              name: storeName,
+              category: 'Other',
+              count: 1
+            });
+          } else if (storeName) {
+            const existing = unmatchedStores.get(storeName)!;
+            existing.count++;
           }
         }
 
@@ -213,6 +247,8 @@ const CSVImporter = () => {
           category: finalCategory,
           date: parsedDate.toISOString().split('T')[0],
           type: finalType,
+          storeName,
+          matchedStore: matchedStoreFlag,
         });
 
       } catch (error) {
@@ -224,7 +260,31 @@ const CSVImporter = () => {
       }
     });
 
-    setParseResults({ success, errors });
+    setParseResults({ 
+      success, 
+      errors, 
+      unmatchedStores: Array.from(unmatchedStores.values())
+    });
+  };
+
+  const handleCategoryChange = (storeName: string, newCategory: string) => {
+    if (!parseResults) return;
+    
+    const updatedUnmatched = parseResults.unmatchedStores.map(store => 
+      store.name === storeName ? { ...store, category: newCategory } : store
+    );
+    
+    const updatedSuccess = parseResults.success.map(transaction => 
+      transaction.storeName === storeName && !transaction.matchedStore
+        ? { ...transaction, category: newCategory }
+        : transaction
+    );
+    
+    setParseResults({
+      ...parseResults,
+      unmatchedStores: updatedUnmatched,
+      success: updatedSuccess
+    });
   };
 
   const importTransactions = async () => {
@@ -232,11 +292,28 @@ const CSVImporter = () => {
 
     setIsProcessing(true);
     try {
-      await addTransactionsMutation.mutateAsync(parseResults.success);
+      // First, add any new store mappings
+      const newStoresToAdd = parseResults.unmatchedStores.filter(store => store.category !== 'Other');
+      
+      for (const store of newStoresToAdd) {
+        try {
+          await addStoreMutation.mutateAsync({
+            name: store.name,
+            category_name: store.category,
+          });
+          console.log(`Added store mapping: ${store.name} → ${store.category}`);
+        } catch (error) {
+          console.error(`Failed to add store mapping for ${store.name}:`, error);
+        }
+      }
+
+      // Then add the transactions
+      const transactionsToAdd = parseResults.success.map(({ storeName, matchedStore, ...transaction }) => transaction);
+      await addTransactionsMutation.mutateAsync(transactionsToAdd);
       
       toast({
         title: "Import Successful",
-        description: `Successfully imported ${parseResults.success.length} transactions`,
+        description: `Successfully imported ${parseResults.success.length} transactions${newStoresToAdd.length > 0 ? ` and ${newStoresToAdd.length} new store mappings` : ''}`,
       });
       
       setIsDialogOpen(false);
@@ -279,9 +356,9 @@ const CSVImporter = () => {
           </Button>
         </DialogTrigger>
         
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Import CSV Transactions</DialogTitle>
+            <DialogTitle>Import CSV Transactions with Smart Categorization</DialogTitle>
           </DialogHeader>
           
           {csvData.length > 0 && (
@@ -402,7 +479,50 @@ const CSVImporter = () => {
                         {parseResults.errors.length} Errors
                       </Badge>
                     )}
+                    {parseResults.unmatchedStores.length > 0 && (
+                      <Badge variant="secondary" className="flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4" />
+                        {parseResults.unmatchedStores.length} New Stores
+                      </Badge>
+                    )}
                   </div>
+
+                  {/* Unmatched Stores Section */}
+                  {parseResults.unmatchedStores.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="font-semibold text-orange-600">New Stores Need Categorization:</h4>
+                      <div className="grid grid-cols-3 gap-2 text-sm font-medium p-2 bg-gray-100 rounded">
+                        <div>Store Name</div>
+                        <div>Category</div>
+                        <div>Transactions Count</div>
+                      </div>
+                      <div className="max-h-32 overflow-y-auto space-y-1">
+                        {parseResults.unmatchedStores.map((store, index) => (
+                          <div key={index} className="grid grid-cols-3 gap-2 text-sm p-2 border-b">
+                            <div className="font-medium">{store.name}</div>
+                            <div>
+                              <Select 
+                                value={store.category} 
+                                onValueChange={(value) => handleCategoryChange(store.name, value)}
+                              >
+                                <SelectTrigger className="h-8">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {categories.map((category) => (
+                                    <SelectItem key={category.id} value={category.name}>
+                                      {category.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="text-center">{store.count}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {parseResults.errors.length > 0 && (
                     <div className="space-y-2">

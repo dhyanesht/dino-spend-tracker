@@ -54,6 +54,63 @@ export const useStoreByName = (storeName: string) => {
   });
 };
 
+// New function for smart store matching
+export const findBestStoreMatch = (description: string, existingStores: Store[]): Store | null => {
+  if (!description || !existingStores.length) return null;
+  
+  const cleanDescription = description.toLowerCase().trim();
+  
+  // Try exact match first
+  const exactMatch = existingStores.find(store => 
+    cleanDescription === store.name.toLowerCase()
+  );
+  if (exactMatch) return exactMatch;
+  
+  // Try partial matches with common store patterns
+  const storeKeywords = [
+    'costco', 'walmart', 'target', 'amazon', 'starbucks', 'mcdonalds', 
+    'shell', 'chevron', 'netflix', 'spotify', 'cvs', 'walgreens',
+    'home depot', 'best buy', 'uber', 'lyft', 'safeway', 'kroger'
+  ];
+  
+  for (const keyword of storeKeywords) {
+    if (cleanDescription.includes(keyword)) {
+      const match = existingStores.find(store => 
+        store.name.toLowerCase().includes(keyword)
+      );
+      if (match) return match;
+    }
+  }
+  
+  // Try fuzzy matching - check if store name is contained in description
+  const fuzzyMatch = existingStores.find(store => {
+    const storeName = store.name.toLowerCase();
+    return cleanDescription.includes(storeName) || storeName.includes(cleanDescription);
+  });
+  
+  return fuzzyMatch || null;
+};
+
+// Extract a clean store name from transaction description
+export const extractStoreName = (description: string): string => {
+  if (!description) return '';
+  
+  // Clean up common patterns in transaction descriptions
+  let cleanName = description
+    .replace(/\s+/g, ' ') // normalize whitespace
+    .replace(/^(POS\s+|DEBIT\s+|PURCHASE\s+)/i, '') // remove payment prefixes
+    .replace(/\s+\d{2}\/\d{2}.*$/, '') // remove dates at end
+    .replace(/\s+#\d+.*$/, '') // remove store numbers
+    .replace(/\s+\d+$/, '') // remove trailing numbers
+    .trim();
+  
+  // Capitalize properly
+  return cleanName
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
 export const useAddStore = () => {
   const queryClient = useQueryClient();
   
