@@ -65,21 +65,34 @@ export const findBestStoreMatch = (description: string, existingStores: Store[])
   console.log('Trying to match description:', cleanDescription);
   console.log('Available stores:', existingStores.map(s => s.name));
   
-  // Try exact match first (case insensitive)
+  // Extract clean store name from description
+  const extractedName = extractStoreName(description).toLowerCase().trim();
+  console.log('Extracted clean name for matching:', extractedName);
+  
+  // Try exact match with extracted name first
   const exactMatch = existingStores.find(store => 
-    cleanDescription === store.name.toLowerCase().trim()
+    extractedName === store.name.toLowerCase().trim()
   );
   if (exactMatch) {
-    console.log('Found exact match:', exactMatch.name);
+    console.log('Found exact match with extracted name:', exactMatch.name);
     return exactMatch;
   }
   
-  // Try to find if any store name is contained in the description
+  // Try exact match with full description (fallback)
+  const exactDescMatch = existingStores.find(store => 
+    cleanDescription === store.name.toLowerCase().trim()
+  );
+  if (exactDescMatch) {
+    console.log('Found exact match with full description:', exactDescMatch.name);
+    return exactDescMatch;
+  }
+  
+  // Try to find if any store name is contained in the extracted name
   const containsMatch = existingStores.find(store => {
     const storeName = store.name.toLowerCase().trim();
-    const matches = cleanDescription.includes(storeName);
+    const matches = extractedName.includes(storeName);
     if (matches) {
-      console.log(`Description "${cleanDescription}" contains store name "${storeName}"`);
+      console.log(`Extracted name "${extractedName}" contains store name "${storeName}"`);
     }
     return matches;
   });
@@ -88,12 +101,12 @@ export const findBestStoreMatch = (description: string, existingStores: Store[])
     return containsMatch;
   }
   
-  // Try reverse - if description is contained in any store name
+  // Try reverse - if extracted name is contained in any store name
   const reverseMatch = existingStores.find(store => {
     const storeName = store.name.toLowerCase().trim();
-    const matches = storeName.includes(cleanDescription);
+    const matches = storeName.includes(extractedName);
     if (matches) {
-      console.log(`Store name "${storeName}" contains description "${cleanDescription}"`);
+      console.log(`Store name "${storeName}" contains extracted name "${extractedName}"`);
     }
     return matches;
   });
@@ -102,16 +115,41 @@ export const findBestStoreMatch = (description: string, existingStores: Store[])
     return reverseMatch;
   }
   
+  // Try fuzzy matching by removing common words and checking similarity
+  const fuzzyMatch = existingStores.find(store => {
+    const storeName = store.name.toLowerCase().trim();
+    const storeWords = storeName.split(/\s+/).filter(word => word.length > 2);
+    const extractedWords = extractedName.split(/\s+/).filter(word => word.length > 2);
+    
+    // Check if most significant words match
+    const commonWords = storeWords.filter(word => 
+      extractedWords.some(extractedWord => 
+        extractedWord.includes(word) || word.includes(extractedWord)
+      )
+    );
+    
+    const similarity = commonWords.length / Math.max(storeWords.length, extractedWords.length);
+    if (similarity >= 0.7) { // 70% similarity threshold
+      console.log(`Found fuzzy match: "${storeName}" vs "${extractedName}" (similarity: ${similarity})`);
+      return true;
+    }
+    return false;
+  });
+  if (fuzzyMatch) {
+    console.log('Found fuzzy match:', fuzzyMatch.name);
+    return fuzzyMatch;
+  }
+  
   // Try common store patterns (more flexible matching)
   const storeKeywords = [
     'costco', 'walmart', 'target', 'amazon', 'starbucks', 'mcdonalds', 
     'shell', 'chevron', 'netflix', 'spotify', 'cvs', 'walgreens',
     'home depot', 'best buy', 'uber', 'lyft', 'safeway', 'kroger',
-    'apple', 'google', 'microsoft', 'paypal'
+    'apple', 'google', 'microsoft', 'paypal', 'shoprite', 'acme'
   ];
   
   for (const keyword of storeKeywords) {
-    if (cleanDescription.includes(keyword)) {
+    if (extractedName.includes(keyword)) {
       const match = existingStores.find(store => 
         store.name.toLowerCase().includes(keyword)
       );
@@ -122,7 +160,7 @@ export const findBestStoreMatch = (description: string, existingStores: Store[])
     }
   }
   
-  console.log('No match found for:', cleanDescription);
+  console.log('No match found for:', extractedName);
   return null;
 };
 
@@ -140,15 +178,15 @@ export const extractStoreName = (description: string): string => {
     .replace(/\s+\d{4}-\d{2}-\d{2}.*$/, '') // remove ISO dates
     .replace(/\s+#\d+.*$/, '') // remove store/reference numbers
     .replace(/\s+\d{3,}$/, '') // remove trailing long numbers
-    .replace(/\s+[A-Z]{2,3}$/, '') // remove state codes at end
     .replace(/\*+\d+$/, '') // remove masked card numbers
     .trim();
   
-  // Remove common suffixes that don't help with identification
+  // Remove state codes and location info at the end - improved pattern
   cleanName = cleanName
-    .replace(/\s+(INC|LLC|CORP|CO|LTD)\.?$/i, '')
-    .replace(/\s+STORE\s*\d*$/i, '')
-    .replace(/\s+LOCATION\s*\d*$/i, '')
+    .replace(/\s+(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)(\s|$)/i, '') // remove state codes
+    .replace(/\s+(INC|LLC|CORP|CO|LTD)\.?$/i, '') // remove business suffixes
+    .replace(/\s+STORE\s*\d*$/i, '') // remove store numbers
+    .replace(/\s+LOCATION\s*\d*$/i, '') // remove location numbers
     .trim();
   
   // Keep original case but clean up
