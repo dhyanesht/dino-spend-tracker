@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -148,6 +149,9 @@ const CSVImporter = () => {
     const errors: { row: number; error: string; data: string[] }[] = [];
     const unmatchedStores: Map<string, UnmatchedStore> = new Map();
 
+    console.log('Starting to parse transactions...');
+    console.log('Available stores for matching:', stores.map(s => s.name));
+
     csvData.forEach((row, index) => {
       try {
         // Skip header row or empty rows
@@ -202,8 +206,12 @@ const CSVImporter = () => {
           return;
         }
 
-        // Smart store matching and categorization
+        // Enhanced store matching and categorization
+        console.log(`Processing row ${index + 1} with description: "${desc}"`);
+        
         const extractedStoreName = extractStoreName(desc);
+        console.log(`Extracted store name: "${extractedStoreName}"`);
+        
         const matchedStore = findBestStoreMatch(desc, stores);
         
         let finalCategory = 'Other';
@@ -212,8 +220,9 @@ const CSVImporter = () => {
 
         if (matchedStore) {
           // Found a matching store, use its category
+          console.log(`Found matching store: ${matchedStore.name} → ${matchedStore.category_name}`);
           finalCategory = matchedStore.category_name;
-          storeName = matchedStore.name;
+          storeName = matchedStore.name; // Use the stored name for consistency
           matchedStoreFlag = true;
         } else if (categoryStr) {
           // Manual category provided in CSV
@@ -221,8 +230,10 @@ const CSVImporter = () => {
             cat.name.toLowerCase() === categoryStr.toLowerCase()
           );
           finalCategory = foundCategory ? foundCategory.name : 'Other';
+          console.log(`Using CSV category: ${finalCategory}`);
         } else {
           // No match found, track as unmatched store
+          console.log(`No match found for "${extractedStoreName}", adding to unmatched stores`);
           if (storeName && !unmatchedStores.has(storeName)) {
             unmatchedStores.set(storeName, {
               name: storeName,
@@ -259,6 +270,11 @@ const CSVImporter = () => {
         });
       }
     });
+
+    console.log('Parsing complete:');
+    console.log(`- ${success.length} successful transactions`);
+    console.log(`- ${errors.length} errors`);
+    console.log(`- ${unmatchedStores.size} unmatched stores`);
 
     setParseResults({ 
       success, 
