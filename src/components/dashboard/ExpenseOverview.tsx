@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
@@ -64,18 +63,50 @@ const ExpenseOverview = () => {
     };
   }).filter(cat => cat.amount > 0);
 
-  // Calculate weekly trends for the display period
-  const weeklyTrend = [];
-  const weeks = Math.min(12, Math.ceil(displayTransactions.length / 20)); // Show up to 12 weeks
-  
-  for (let week = 0; week < weeks; week++) {
-    const weekTransactions = displayTransactions.slice(week * 20, (week + 1) * 20);
-    const weekSpending = weekTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
-    weeklyTrend.push({
-      week: `Week ${week + 1}`,
-      spending: weekSpending
-    });
-  }
+  // Improved weekly trends with better labeling
+  const getWeeklyTrends = () => {
+    const weeklyData = [];
+    const now = new Date();
+    const currentWeek = getWeekNumber(now);
+    
+    // Get last 8 weeks for better visualization
+    for (let i = 7; i >= 0; i--) {
+      const weekDate = new Date(now.getTime() - (i * 7 * 24 * 60 * 60 * 1000));
+      const weekNum = getWeekNumber(weekDate);
+      const monthName = weekDate.toLocaleDateString('en-US', { month: 'short' });
+      const weekLabel = `${monthName} W${weekNum}`;
+      
+      // Filter transactions for this week
+      const weekStart = new Date(weekDate);
+      weekStart.setDate(weekDate.getDate() - weekDate.getDay());
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      
+      const weekTransactions = displayTransactions.filter(t => {
+        const transactionDate = new Date(t.date);
+        return transactionDate >= weekStart && transactionDate <= weekEnd;
+      });
+      
+      const weekSpending = weekTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+      
+      weeklyData.push({
+        week: weekLabel,
+        spending: weekSpending,
+        fullLabel: `Week of ${weekStart.toLocaleDateString()}`
+      });
+    }
+    
+    return weeklyData;
+  };
+
+  // Helper function to get week number
+  const getWeekNumber = (date: Date) => {
+    const startOfYear = new Date(date.getFullYear(), 0, 1);
+    const pastDaysOfYear = (date.getTime() - startOfYear.getTime()) / 86400000;
+    return Math.ceil((pastDaysOfYear + startOfYear.getDay() + 1) / 7);
+  };
+
+  const weeklyTrend = getWeeklyTrends();
 
   const totalSpending = parentCategorySpending.reduce((sum, item) => sum + item.amount, 0);
   const totalBudget = parentCategories.reduce((sum, cat) => {
@@ -85,6 +116,37 @@ const ExpenseOverview = () => {
   const totalTransactions = displayTransactions.length;
 
   const timeRangeText = recentTransactions.length > 0 ? 'Last 3 months' : 'All time';
+
+  // Custom tooltip for pie chart
+  const renderPieTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0];
+      return (
+        <div className="bg-white p-3 border rounded-lg shadow-lg">
+          <p className="font-medium">{data.payload.category}</p>
+          <p className="text-blue-600">${data.value.toFixed(2)}</p>
+          <p className="text-sm text-gray-500">
+            {((data.value / totalSpending) * 100).toFixed(1)}% of total
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // Custom tooltip for bar chart
+  const renderBarTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0];
+      return (
+        <div className="bg-white p-3 border rounded-lg shadow-lg">
+          <p className="font-medium">{data.payload.fullLabel}</p>
+          <p className="text-blue-600">${data.value.toFixed(2)}</p>
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -107,49 +169,69 @@ const ExpenseOverview = () => {
         </Card>
       </div>
 
-      {/* Pie Chart */}
+      {/* Pie Chart - Fixed overflow */}
       <Card className="p-6 lg:col-span-1">
         <h3 className="text-lg font-semibold mb-4">Spending by Category</h3>
         {parentCategorySpending.length > 0 ? (
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={parentCategorySpending}
-                cx="50%"
-                cy="50%"
-                outerRadius={80}
-                dataKey="amount"
-                label={({ category, amount }) => `${category}: $${amount.toFixed(0)}`}
-              >
-                {parentCategorySpending.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}`} />
-            </PieChart>
-          </ResponsiveContainer>
+          <div className="w-full h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={parentCategorySpending}
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={80}
+                  dataKey="amount"
+                  label={false}
+                >
+                  {parentCategorySpending.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip content={renderPieTooltip} />
+                <Legend 
+                  verticalAlign="bottom" 
+                  height={36}
+                  formatter={(value, entry) => (
+                    <span style={{ color: entry.color }}>
+                      {value}: ${parentCategorySpending.find(cat => cat.category === value)?.amount.toFixed(0)}
+                    </span>
+                  )}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
         ) : (
-          <div className="h-64 flex items-center justify-center text-slate-500">
+          <div className="h-80 flex items-center justify-center text-slate-500">
             No expenses found
           </div>
         )}
       </Card>
 
-      {/* Bar Chart */}
+      {/* Bar Chart - Improved with better labels */}
       <Card className="p-6 lg:col-span-2">
-        <h3 className="text-lg font-semibold mb-4">Spending Trend</h3>
+        <h3 className="text-lg font-semibold mb-4">Weekly Spending Trend</h3>
+        <p className="text-sm text-slate-600 mb-4">Last 8 weeks of spending activity</p>
         {weeklyTrend.length > 0 ? (
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={weeklyTrend}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="week" />
-              <YAxis />
-              <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}`} />
-              <Bar dataKey="spending" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="w-full h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={weeklyTrend} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="week" 
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
+                  fontSize={12}
+                />
+                <YAxis />
+                <Tooltip content={renderBarTooltip} />
+                <Bar dataKey="spending" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         ) : (
-          <div className="h-64 flex items-center justify-center text-slate-500">
+          <div className="h-80 flex items-center justify-center text-slate-500">
             No transaction data available
           </div>
         )}

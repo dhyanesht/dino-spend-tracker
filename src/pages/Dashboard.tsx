@@ -1,14 +1,16 @@
+
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Upload, TrendingUp, PieChart, Calendar, List } from 'lucide-react';
+import { Upload, TrendingUp, PieChart, Calendar, List, DollarSign } from 'lucide-react';
 import ExpenseOverview from '@/components/dashboard/ExpenseOverview';
 import TrendsAnalysis from '@/components/dashboard/TrendsAnalysis';
 import CategoryManager from '@/components/dashboard/CategoryManager';
 import TransactionsList from '@/components/dashboard/TransactionsList';
 import CSVImporter from '@/components/dashboard/CSVImporter';
 import SmartTransactionDialog from '@/components/dashboard/SmartTransactionDialog';
+import BudgetManager from '@/components/dashboard/BudgetManager';
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -34,7 +36,7 @@ const Dashboard = () => {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-8">
+          <TabsList className="grid w-full grid-cols-6 mb-8">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <PieChart className="w-4 h-4" />
               Overview
@@ -46,6 +48,10 @@ const Dashboard = () => {
             <TabsTrigger value="trends" className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4" />
               Trends
+            </TabsTrigger>
+            <TabsTrigger value="budget" className="flex items-center gap-2">
+              <DollarSign className="w-4 h-4" />
+              Budget
             </TabsTrigger>
             <TabsTrigger value="categories" className="flex items-center gap-2">
               <Calendar className="w-4 h-4" />
@@ -67,6 +73,10 @@ const Dashboard = () => {
 
           <TabsContent value="trends" className="space-y-6">
             <TrendsAnalysis />
+          </TabsContent>
+
+          <TabsContent value="budget" className="space-y-6">
+            <BudgetManager />
           </TabsContent>
 
           <TabsContent value="categories" className="space-y-6">

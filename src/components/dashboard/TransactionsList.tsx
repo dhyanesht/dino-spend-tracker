@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useSubcategories } from '@/hooks/useCategories';
+import EditTransactionDialog from './EditTransactionDialog';
 
 const TransactionsList = () => {
   const [filterCategory, setFilterCategory] = useState('all');
@@ -93,7 +94,7 @@ const TransactionsList = () => {
           </div>
         </div>
 
-        <div className="border rounded-lg">
+        <div className="border rounded-lg overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -103,6 +104,7 @@ const TransactionsList = () => {
                 <TableHead>Parent Category</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
+                <TableHead className="w-16">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -112,18 +114,18 @@ const TransactionsList = () => {
                     <TableCell className="font-medium">
                       {new Date(transaction.date).toLocaleDateString()}
                     </TableCell>
-                    <TableCell>{transaction.description}</TableCell>
+                    <TableCell className="max-w-xs truncate">{transaction.description}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <div 
-                          className="w-3 h-3 rounded-full" 
+                          className="w-3 h-3 rounded-full flex-shrink-0" 
                           style={{ backgroundColor: getCategoryColor(transaction.category) }}
                         ></div>
-                        {transaction.category}
+                        <span className="truncate">{transaction.category}</span>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <span className="text-slate-600">
+                      <span className="text-slate-600 truncate">
                         {getParentCategory(transaction.category) || 'N/A'}
                       </span>
                     </TableCell>
@@ -137,11 +139,14 @@ const TransactionsList = () => {
                         {transaction.type === 'expense' ? '-' : '+'}${Number(transaction.amount).toFixed(2)}
                       </span>
                     </TableCell>
+                    <TableCell>
+                      <EditTransactionDialog transaction={transaction} />
+                    </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-slate-500">
+                  <TableCell colSpan={7} className="text-center py-8 text-slate-500">
                     No transactions found matching your filters
                   </TableCell>
                 </TableRow>

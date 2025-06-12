@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -78,6 +77,39 @@ export const useAddMultipleTransactions = () => {
     },
     onSuccess: (data) => {
       console.log('Invalidating transactions query cache after bulk insert');
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+    },
+  });
+};
+
+export const useUpdateTransaction = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (transaction: Partial<Transaction> & { id: string }) => {
+      console.log('Updating transaction:', transaction);
+      const { data, error } = await supabase
+        .from('transactions')
+        .update({
+          description: transaction.description,
+          amount: transaction.amount,
+          category: transaction.category,
+          type: transaction.type,
+          date: transaction.date
+        })
+        .eq('id', transaction.id)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Error updating transaction:', error);
+        throw error;
+      }
+      console.log('Transaction updated successfully:', data);
+      return data;
+    },
+    onSuccess: () => {
+      console.log('Invalidating transactions query cache');
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
     },
   });
