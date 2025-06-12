@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -89,6 +88,34 @@ export const useAddCategory = () => {
         throw error;
       }
       console.log('Category added:', data);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ['parent-categories'] });
+      queryClient.invalidateQueries({ queryKey: ['subcategories'] });
+    },
+  });
+};
+
+export const useUpdateCategory = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: Partial<Category> & { id: string }) => {
+      console.log('Updating category:', id, updates);
+      const { data, error } = await supabase
+        .from('categories')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Error updating category:', error);
+        throw error;
+      }
+      console.log('Category updated successfully:', data);
       return data;
     },
     onSuccess: () => {

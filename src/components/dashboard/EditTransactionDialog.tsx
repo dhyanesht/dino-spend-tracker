@@ -20,7 +20,7 @@ const EditTransactionDialog = ({ transaction }: EditTransactionDialogProps) => {
   const [description, setDescription] = useState(transaction.description);
   const [amount, setAmount] = useState(transaction.amount.toString());
   const [category, setCategory] = useState(transaction.category);
-  const [type, setType] = useState(transaction.type);
+  const [type, setType] = useState<'expense' | 'income'>(transaction.type);
   const [date, setDate] = useState(transaction.date);
 
   const { data: subcategories = [] } = useSubcategories();
@@ -35,7 +35,7 @@ const EditTransactionDialog = ({ transaction }: EditTransactionDialogProps) => {
         description,
         amount: parseFloat(amount),
         category,
-        type: type as 'expense' | 'income',
+        type,
         date
       });
       
@@ -45,6 +45,10 @@ const EditTransactionDialog = ({ transaction }: EditTransactionDialogProps) => {
       console.error('Error updating transaction:', error);
       toast.error('Failed to update transaction');
     }
+  };
+
+  const handleTypeChange = (value: string) => {
+    setType(value as 'expense' | 'income');
   };
 
   return (
@@ -102,7 +106,7 @@ const EditTransactionDialog = ({ transaction }: EditTransactionDialogProps) => {
 
           <div>
             <Label htmlFor="type">Type</Label>
-            <Select value={type} onValueChange={setType}>
+            <Select value={type} onValueChange={handleTypeChange}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
