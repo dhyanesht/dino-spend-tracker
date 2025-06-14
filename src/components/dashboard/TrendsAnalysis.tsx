@@ -66,7 +66,9 @@ const TrendsAnalysis = () => {
 
   // Generate category comparison data - separate function for clarity
   const getCategoryComparisonData = () => {
-    if (selectedCategory !== 'all') return [];
+    if (selectedCategory !== 'all') {
+      return { data: [], topCategories: [] };
+    }
     
     const months = [];
     const now = new Date();
@@ -104,8 +106,42 @@ const TrendsAnalysis = () => {
     return { data: months, topCategories: categoryTotals };
   };
 
+  // Generate year-over-year data
+  const getYearOverYearData = () => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const lastYear = currentYear - 1;
+
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const monthlyData: { [month: string]: { 'This Year'?: number; 'Last Year'?: number } } = 
+      monthNames.reduce((acc, month) => ({ ...acc, [month]: {} }), {});
+
+    transactionsForAnalysis.forEach(t => {
+      const transactionDate = new Date(t.date);
+      const year = transactionDate.getFullYear();
+      
+      if (year === currentYear || year === lastYear) {
+        const month = transactionDate.getMonth();
+        const monthName = monthNames[month];
+        const key = year === currentYear ? 'This Year' : 'Last Year';
+        
+        if (!monthlyData[monthName][key]) {
+          monthlyData[monthName][key] = 0;
+        }
+        monthlyData[monthName][key]! += Number(t.amount);
+      }
+    });
+
+    return monthNames.map(month => ({
+      month,
+      'This Year': monthlyData[month]['This Year'] || 0,
+      'Last Year': monthlyData[month]['Last Year'] || 0,
+    }));
+  };
+
   const monthlyTrends = getMonthlyTrends();
   const categoryComparison = getCategoryComparisonData();
+  const yearOverYearData = getYearOverYearData();
 
   // Calculate insights
   const getCurrentMonthSpending = () => {
