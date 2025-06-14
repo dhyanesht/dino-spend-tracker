@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -34,18 +35,25 @@ const TrendsAnalysis = () => {
     return <NoTrendsEmpty />;
   }
 
+  const transactionsForAnalysis = selectedCategory === 'all'
+    ? expenseTransactions
+    : expenseTransactions.filter(t => t.category === selectedCategory);
+
   // Generate monthly trends data
   const getMonthlyTrends = () => {
     const months = [];
     const now = new Date();
     
-    // Get last 6 months
-    for (let i = 5; i >= 0; i--) {
+    let monthCount = 6;
+    if (timeRange === '3months') monthCount = 3;
+    if (timeRange === '1year') monthCount = 12;
+
+    for (let i = monthCount - 1; i >= 0; i--) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const monthKey = date.toISOString().slice(0, 7); // YYYY-MM format
       const monthName = date.toLocaleDateString('en-US', { month: 'short' });
       
-      const monthTransactions = expenseTransactions.filter(t => 
+      const monthTransactions = transactionsForAnalysis.filter(t => 
         t.date.startsWith(monthKey)
       );
       
@@ -53,14 +61,15 @@ const TrendsAnalysis = () => {
       
       const categoryData: any = { month: monthName, total };
       
-      // Add category-specific data
-      categories.slice(0, 4).forEach(cat => { // Top 4 categories for the chart
-        const categorySpent = monthTransactions
-          .filter(t => t.category === cat.name)
-          .reduce((sum, t) => sum + Number(t.amount), 0);
-        
-        categoryData[cat.name.toLowerCase().replace(/\s+/g, '')] = categorySpent;
-      });
+      if (selectedCategory === 'all') {
+        categories.slice(0, 4).forEach(cat => {
+          const categorySpent = monthTransactions
+            .filter(t => t.category === cat.name)
+            .reduce((sum, t) => sum + Number(t.amount), 0);
+          
+          categoryData[cat.name.toLowerCase().replace(/\s+/g, '')] = categorySpent;
+        });
+      }
       
       months.push(categoryData);
     }
@@ -79,7 +88,7 @@ const TrendsAnalysis = () => {
     const monthlyData: { [month: string]: { 'This Year'?: number; 'Last Year'?: number } } = 
       monthNames.reduce((acc, month) => ({ ...acc, [month]: {} }), {});
 
-    expenseTransactions.forEach(t => {
+    transactionsForAnalysis.forEach(t => {
       const transactionDate = new Date(t.date);
       const year = transactionDate.getFullYear();
       
@@ -107,7 +116,7 @@ const TrendsAnalysis = () => {
   // Calculate insights
   const getCurrentMonthSpending = () => {
     const currentMonth = new Date().toISOString().slice(0, 7);
-    return expenseTransactions
+    return transactionsForAnalysis
       .filter(t => t.date.startsWith(currentMonth))
       .reduce((sum, t) => sum + Number(t.amount), 0);
   };
@@ -116,7 +125,7 @@ const TrendsAnalysis = () => {
     const prevMonth = new Date();
     prevMonth.setMonth(prevMonth.getMonth() - 1);
     const prevMonthKey = prevMonth.toISOString().slice(0, 7);
-    return expenseTransactions
+    return transactionsForAnalysis
       .filter(t => t.date.startsWith(prevMonthKey))
       .reduce((sum, t) => sum + Number(t.amount), 0);
   };
@@ -126,14 +135,12 @@ const TrendsAnalysis = () => {
   const spendingChange = previousSpending > 0 
     ? ((currentSpending - previousSpending) / previousSpending) * 100 
     : 0;
-
-  const categoriesOptions = [
-    { value: 'all', label: 'All Categories' },
-    ...categories.slice(0, 4).map(cat => ({
-      value: cat.name.toLowerCase().replace(/\s+/g, ''),
-      label: cat.name
-    }))
-  ];
+  
+  const sortedCategories = [...categories].sort((a, b) => {
+    if (a.name < b.name) return -1;
+    if (a.name > b.name) return 1;
+    return 0;
+  });
 
   const chartColors = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))'];
 
@@ -158,13 +165,17 @@ const TrendsAnalysis = () => {
               </SelectContent>
             </Select>
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-44">
-                <SelectValue />
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="All Categories" />
               </SelectTrigger>
               <SelectContent>
-                {categoriesOptions.map((category) => (
-                  <SelectItem key={category.value} value={category.value}>
-                    {category.label}
+                <SelectItem value="all">All Categories</SelectItem>
+                {sortedCategories.map((category) => (
+                  <SelectItem key={category.id} value={category.name}>
+                    {category.name}
+                    {category.parent_category && (
+                      <span className="text-muted-foreground text-xs ml-1">({category.parent_category})</span>
+                    )}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -175,7 +186,9 @@ const TrendsAnalysis = () => {
 
       {/* Monthly Trend Chart */}
       <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4 dark:text-white">Monthly Spending Trend</h3>
+        <h3 className="text-lg font-semibold mb-4 dark:text-white">
+          Monthly Spending Trend {selectedCategory !== 'all' && `for ${selectedCategory}`}
+        </h3>
         {monthlyTrends.length > 0 ? (
           <EnhancedAreaChart
             data={monthlyTrends}
@@ -190,26 +203,30 @@ const TrendsAnalysis = () => {
       </Card>
 
       {/* Category Comparison */}
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4 dark:text-white">Category Trends Comparison</h3>
-        {categories.length > 0 && monthlyTrends.length > 0 ? (
-          <EnhancedLineChart
-            data={monthlyTrends}
-            xAxisKey="month"
-            lines={categories.slice(0, 4).map((cat, index) => ({
-              dataKey: cat.name.toLowerCase().replace(/\s+/g, ''),
-              color: chartColors[index],
-              name: cat.name
-            }))}
-          />
-        ) : (
-          <NoDataEmpty />
-        )}
-      </Card>
+      {selectedCategory === 'all' && (
+        <Card className="p-6">
+          <h3 className="text-lg font-semibold mb-4 dark:text-white">Category Trends Comparison</h3>
+          {categories.length > 0 && monthlyTrends.length > 0 ? (
+            <EnhancedLineChart
+              data={monthlyTrends}
+              xAxisKey="month"
+              lines={categories.slice(0, 4).map((cat, index) => ({
+                dataKey: cat.name.toLowerCase().replace(/\s+/g, ''),
+                color: chartColors[index],
+                name: cat.name
+              }))}
+            />
+          ) : (
+            <NoDataEmpty />
+          )}
+        </Card>
+      )}
 
       {/* Year-over-Year Comparison */}
       <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4 dark:text-white">Year-over-Year Spending</h3>
+        <h3 className="text-lg font-semibold mb-4 dark:text-white">
+          Year-over-Year Spending {selectedCategory !== 'all' && `for ${selectedCategory}`}
+        </h3>
         {yearOverYearData.some(d => d['This Year'] > 0 || d['Last Year'] > 0) ? (
           <EnhancedLineChart
             data={yearOverYearData}
