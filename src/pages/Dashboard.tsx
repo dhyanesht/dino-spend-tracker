@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Upload, TrendingUp, PieChart, Calendar, List, DollarSign, Lock, LockOpen } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { BottomTabBar } from '@/components/ui/bottom-tab-bar';
+import DashboardHeaderActions from "@/components/dashboard/DashboardHeaderActions";
 import { useMobile } from '@/hooks/useMobile';
 import ExpenseOverview from '@/components/dashboard/ExpenseOverview';
 import TrendsAnalysis from '@/components/dashboard/TrendsAnalysis';
@@ -122,17 +123,7 @@ const DashboardInner = () => {
               <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Dino's Spending Tracker</h1>
               <p className="text-slate-600 dark:text-slate-300 mt-1">Smart expense management made simple</p>
             </div>
-            <div className="flex items-center gap-3">
-              <ThemeToggle />
-              <LockButton />
-              {!isMobile && (
-                <>
-                  <SmartTransactionDialog />
-                  {/* Only show CSVImporter if admin */}
-                  {isAdmin && <CSVImporter />}
-                </>
-              )}
-            </div>
+            <DashboardHeaderActions />
           </div>
         </div>
       </header>
@@ -142,7 +133,6 @@ const DashboardInner = () => {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           {/* Desktop Tab List - Hidden on Mobile */}
           <TabsList className={`grid w-full grid-cols-6 mb-8 ${isMobile ? 'hidden' : ''}`}>
-            {/* ... keep other triggers ... */}
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <PieChart className="w-4 h-4" />
               Overview
