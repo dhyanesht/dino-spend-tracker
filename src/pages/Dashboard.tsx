@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Upload, TrendingUp, PieChart, Calendar, List, DollarSign } from 'lucide-react';
+import { Upload, TrendingUp, PieChart, Calendar, List, DollarSign, Lock, LockOpen } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { BottomTabBar } from '@/components/ui/bottom-tab-bar';
 import { useMobile } from '@/hooks/useMobile';
@@ -13,9 +13,103 @@ import TransactionsList from '@/components/dashboard/TransactionsList';
 import CSVImporter from '@/components/dashboard/CSVImporter';
 import SmartTransactionDialog from '@/components/dashboard/SmartTransactionDialog';
 import BudgetManager from '@/components/dashboard/BudgetManager';
+import { AdminProvider, useAdmin } from "@/contexts/AdminContext";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
-const Dashboard = () => {
-  const [activeTab, setActiveTab] = useState('overview');
+const LockButton = () => {
+  const { isAdmin, lockAdmin } = useAdmin();
+  const [dialogOpen, setDialogOpen] = React.useState(false);
+
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label={isAdmin ? "Lock Editing" : "Unlock Editing"}
+        onClick={() => {
+          if (isAdmin) {
+            lockAdmin();
+            toast.info("Read-only mode enabled.");
+          } else {
+            setDialogOpen(true);
+          }
+        }}
+      >
+        {isAdmin ? (
+          <LockOpen className="w-5 h-5 text-green-600" />
+        ) : (
+          <Lock className="w-5 h-5 text-orange-500" />
+        )}
+      </Button>
+      <AdminUnlockDialog open={dialogOpen} setOpen={setDialogOpen} />
+    </>
+  );
+};
+
+const AdminUnlockDialog = ({
+  open,
+  setOpen,
+}: {
+  open: boolean;
+  setOpen: (v: boolean) => void;
+}) => {
+  const { unlockAdmin } = useAdmin();
+  const [password, setPassword] = React.useState("");
+  const [isLoading, setIsLoading] = React.useState(false);
+
+  const handleUnlock = () => {
+    setIsLoading(true);
+    setTimeout(() => {
+      if (unlockAdmin(password)) {
+        toast.success("Edit mode unlocked!");
+        setOpen(false);
+      } else {
+        toast.error("Incorrect password");
+      }
+      setIsLoading(false);
+      setPassword("");
+    }, 300);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Unlock Edit Mode</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-2">
+          <label className="text-sm font-medium" htmlFor="admin-pass">
+            Enter Admin Password:
+          </label>
+          <Input
+            id="admin-pass"
+            type="password"
+            value={password}
+            disabled={isLoading}
+            onChange={e => setPassword(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === "Enter") handleUnlock();
+            }}
+            autoFocus
+          />
+          <Button
+            className="w-full mt-2"
+            onClick={handleUnlock}
+            disabled={isLoading || !password}
+          >
+            {isLoading ? "Unlocking..." : "Unlock"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+const DashboardInner = () => {
+  const { isAdmin } = useAdmin();
+  const [activeTab, setActiveTab] = React.useState("overview");
   const isMobile = useMobile();
 
   return (
@@ -30,6 +124,7 @@ const Dashboard = () => {
             </div>
             <div className="flex items-center gap-3">
               <ThemeToggle />
+              <LockButton />
               {!isMobile && (
                 <>
                   <SmartTransactionDialog />
@@ -115,7 +210,6 @@ const Dashboard = () => {
           </TabsContent>
         </Tabs>
       </main>
-
       {/* Mobile Bottom Tab Bar */}
       {isMobile && (
         <BottomTabBar activeTab={activeTab} onTabChange={setActiveTab} />
@@ -123,5 +217,12 @@ const Dashboard = () => {
     </div>
   );
 };
+
+// Top-level Dashboard with AdminProvider wrapping everything
+const Dashboard = () => (
+  <AdminProvider>
+    <DashboardInner />
+  </AdminProvider>
+);
 
 export default Dashboard;
