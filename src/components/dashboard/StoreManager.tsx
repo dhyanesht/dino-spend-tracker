@@ -3,20 +3,40 @@ import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Edit2, Save, X } from 'lucide-react';
+import { Edit2, Save, X, Delete } from 'lucide-react';
 import { useStores, useUpdateStore } from '@/hooks/useStores';
 import { useSubcategories } from '@/hooks/useCategories';
 import { toast } from 'sonner';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+
+// Custom hook for deleting a store
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+
+function useDeleteStore() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('stores').delete().eq('id', id);
+      if (error) throw error;
+      return id;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stores'] });
+    },
+  });
+}
 
 const StoreManager = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editCategory, setEditCategory] = useState('');
-  
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string, name: string } | null>(null);
+
   const { data: stores = [], isLoading } = useStores();
   const { data: subcategories = [] } = useSubcategories();
   const updateStore = useUpdateStore();
+  const deleteStore = useDeleteStore();
 
   const handleEdit = (storeId: string, currentCategory: string) => {
     setEditingId(storeId);
@@ -41,6 +61,19 @@ const StoreManager = () => {
   const handleCancel = () => {
     setEditingId(null);
     setEditCategory('');
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteStore.mutateAsync(deleteTarget.id);
+      toast.success(`Deleted store "${deleteTarget.name}"`);
+    } catch (error) {
+      console.error('Error deleting store:', error);
+      toast.error('Failed to delete store');
+    } finally {
+      setDeleteTarget(null);
+    }
   };
 
   if (isLoading) {
@@ -100,32 +133,77 @@ const StoreManager = () => {
                     {new Date(store.updated_at).toLocaleDateString()}
                   </TableCell>
                   <TableCell>
-                    {editingId === store.id ? (
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => handleSave(store.id)}
-                          disabled={updateStore.isPending}
-                        >
-                          <Save className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={handleCancel}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleEdit(store.id, store.category_name)}
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {editingId === store.id ? (
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={() => handleSave(store.id)}
+                            disabled={updateStore.isPending}
+                          >
+                            <Save className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleCancel}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEdit(store.id, store.category_name)}
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </Button>
+                          <AlertDialog
+                            open={!!deleteTarget && deleteTarget.id === store.id}
+                            onOpenChange={(open) => {
+                              if (open) {
+                                setDeleteTarget({ id: store.id, name: store.name });
+                              } else {
+                                setDeleteTarget(null);
+                              }
+                            }}
+                          >
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-destructive"
+                                disabled={deleteStore.isPending}
+                                aria-label={`Delete ${store.name}`}
+                                onClick={() => setDeleteTarget({ id: store.id, name: store.name })}
+                              >
+                                <Delete className="w-4 h-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>
+                                  Delete Store "{store.name}"?
+                                </AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete this store mapping? This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel disabled={deleteStore.isPending}>
+                                  Cancel
+                                </AlertDialogCancel>
+                                <AlertDialogAction disabled={deleteStore.isPending} onClick={handleDelete}>
+                                  {deleteStore.isPending ? "Deleting..." : "Delete"}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
