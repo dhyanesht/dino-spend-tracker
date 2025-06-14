@@ -39,6 +39,27 @@ export type Database = {
         }
         Relationships: []
       }
+      plaid_items: {
+        Row: {
+          access_token: string
+          created_at: string
+          id: string
+          item_id: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string
+          id?: string
+          item_id: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          id?: string
+          item_id?: string
+        }
+        Relationships: []
+      }
       stores: {
         Row: {
           category_name: string
