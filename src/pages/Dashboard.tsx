@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Upload, TrendingUp, PieChart, Calendar, List, DollarSign } from 'lucide-react';
+import { Upload, TrendingUp, PieChart, Calendar, List, DollarSign, Banknote } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { BottomTabBar } from '@/components/ui/bottom-tab-bar';
 import { useMobile } from '@/hooks/useMobile';
@@ -13,6 +13,8 @@ import TransactionsList from '@/components/dashboard/TransactionsList';
 import CSVImporter from '@/components/dashboard/CSVImporter';
 import SmartTransactionDialog from '@/components/dashboard/SmartTransactionDialog';
 import BudgetManager from '@/components/dashboard/BudgetManager';
+import { FEATURE_FLAG_PLAID } from '@/config';
+import PlaidLink from '@/components/integrations/plaid/PlaidLink';
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -103,13 +105,19 @@ const Dashboard = () => {
           <TabsContent value="import" className="space-y-6">
             <Card className="p-8 bg-white dark:bg-slate-800">
               <div className="text-center">
-                <Upload className="w-16 h-16 mx-auto text-slate-400 dark:text-slate-500 mb-4" />
+                <div className="flex justify-center items-center gap-4 mb-4">
+                  <Upload className="w-16 h-16 text-slate-400 dark:text-slate-500" />
+                  {FEATURE_FLAG_PLAID && <Banknote className="w-16 h-16 text-slate-400 dark:text-slate-500" />}
+                </div>
                 <h2 className="text-xl font-semibold mb-2 dark:text-white">Import Your Financial Data</h2>
-                <p className="text-slate-600 dark:text-slate-300 mb-6">
-                  Upload CSV files from your banks and credit cards. Our system will automatically
-                  detect the format and categorize your transactions using your store preferences.
+                <p className="text-slate-600 dark:text-slate-300 mb-6 max-w-2xl mx-auto">
+                  Manually upload CSV files from your banks, or automatically sync transactions
+                  by connecting your bank account securely with Plaid.
                 </p>
-                <CSVImporter />
+                <div className="flex justify-center items-center gap-4">
+                  <CSVImporter />
+                  {FEATURE_FLAG_PLAID && <PlaidLink />}
+                </div>
               </div>
             </Card>
           </TabsContent>
