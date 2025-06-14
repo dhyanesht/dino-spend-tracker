@@ -1,8 +1,11 @@
+
 import React from 'react';
 import { Card } from '@/components/ui/card';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useCategories, useParentCategories, useSubcategories } from '@/hooks/useCategories';
+import { DashboardSkeleton } from '@/components/ui/enhanced-skeleton';
+import { NoTransactionsEmpty, NoDataEmpty } from '@/components/ui/empty-state';
+import { EnhancedPieChart, EnhancedBarChart } from '@/components/ui/enhanced-chart';
 
 const ExpenseOverview = () => {
   const { data: transactions = [], isLoading: transactionsLoading } = useTransactions();
@@ -10,13 +13,7 @@ const ExpenseOverview = () => {
   const { data: subcategories = [], isLoading: subcategoriesLoading } = useSubcategories();
 
   if (transactionsLoading || parentCategoriesLoading || subcategoriesLoading) {
-    return (
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-3 flex items-center justify-center h-64">
-          <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-        </div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   // Get the last 3 months of data instead of just current month
@@ -31,6 +28,18 @@ const ExpenseOverview = () => {
   // If no recent transactions, show all expenses
   const displayTransactions = recentTransactions.length > 0 ? recentTransactions : 
     transactions.filter(t => t.type === 'expense');
+
+  if (displayTransactions.length === 0) {
+    return (
+      <NoTransactionsEmpty 
+        onImport={() => {
+          // Navigate to import tab
+          const importTab = document.querySelector('[value="import"]') as HTMLElement;
+          importTab?.click();
+        }}
+      />
+    );
+  }
 
   // Create a mapping of subcategory to parent category
   const subcategoryToParent = subcategories.reduce((acc, sub) => {
@@ -67,14 +76,13 @@ const ExpenseOverview = () => {
   const getWeeklyTrends = () => {
     const weeklyData = [];
     const now = new Date();
-    const currentWeek = getWeekNumber(now);
     
     // Get last 8 weeks for better visualization
     for (let i = 7; i >= 0; i--) {
       const weekDate = new Date(now.getTime() - (i * 7 * 24 * 60 * 60 * 1000));
-      const weekNum = getWeekNumber(weekDate);
       const monthName = weekDate.toLocaleDateString('en-US', { month: 'short' });
-      const weekLabel = `${monthName} W${weekNum}`;
+      const day = weekDate.getDate();
+      const weekLabel = `${monthName} ${day}`;
       
       // Filter transactions for this week
       const weekStart = new Date(weekDate);
@@ -99,54 +107,16 @@ const ExpenseOverview = () => {
     return weeklyData;
   };
 
-  // Helper function to get week number
-  const getWeekNumber = (date: Date) => {
-    const startOfYear = new Date(date.getFullYear(), 0, 1);
-    const pastDaysOfYear = (date.getTime() - startOfYear.getTime()) / 86400000;
-    return Math.ceil((pastDaysOfYear + startOfYear.getDay() + 1) / 7);
-  };
-
   const weeklyTrend = getWeeklyTrends();
-
   const totalSpending = parentCategorySpending.reduce((sum, item) => sum + item.amount, 0);
   const totalBudget = parentCategories.reduce((sum, cat) => {
     const relatedSubcategories = subcategories.filter(sub => sub.parent_category === cat.name);
     return sum + relatedSubcategories.reduce((subSum, sub) => subSum + Number(sub.monthly_budget), 0);
   }, 0);
   const totalTransactions = displayTransactions.length;
-
   const timeRangeText = recentTransactions.length > 0 ? 'Last 3 months' : 'All time';
 
-  // Custom tooltip for pie chart
-  const renderPieTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0];
-      return (
-        <div className="bg-white p-3 border rounded-lg shadow-lg">
-          <p className="font-medium">{data.payload.category}</p>
-          <p className="text-blue-600">${data.value.toFixed(2)}</p>
-          <p className="text-sm text-gray-500">
-            {((data.value / totalSpending) * 100).toFixed(1)}% of total
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
-
-  // Custom tooltip for bar chart
-  const renderBarTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0];
-      return (
-        <div className="bg-white p-3 border rounded-lg shadow-lg">
-          <p className="font-medium">{data.payload.fullLabel}</p>
-          <p className="text-blue-600">${data.value.toFixed(2)}</p>
-        </div>
-      );
-    }
-    return null;
-  };
+  const categoryColors = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -169,104 +139,67 @@ const ExpenseOverview = () => {
         </Card>
       </div>
 
-      {/* Pie Chart - Fixed overflow */}
+      {/* Pie Chart */}
       <Card className="p-6 lg:col-span-1">
-        <h3 className="text-lg font-semibold mb-4">Spending by Category</h3>
+        <h3 className="text-lg font-semibold mb-4 dark:text-white">Spending by Category</h3>
         {parentCategorySpending.length > 0 ? (
-          <div className="w-full h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={parentCategorySpending}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  dataKey="amount"
-                  label={false}
-                >
-                  {parentCategorySpending.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip content={renderPieTooltip} />
-                <Legend 
-                  verticalAlign="bottom" 
-                  height={36}
-                  formatter={(value, entry) => (
-                    <span style={{ color: entry.color }}>
-                      {value}: ${parentCategorySpending.find(cat => cat.category === value)?.amount.toFixed(0)}
-                    </span>
-                  )}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+          <EnhancedPieChart
+            data={parentCategorySpending}
+            dataKey="amount"
+            nameKey="category"
+            colors={parentCategorySpending.map(cat => cat.color)}
+            title="Category Spending"
+          />
         ) : (
-          <div className="h-80 flex items-center justify-center text-slate-500">
-            No expenses found
-          </div>
+          <NoDataEmpty />
         )}
       </Card>
 
-      {/* Bar Chart - Improved with better labels */}
+      {/* Bar Chart */}
       <Card className="p-6 lg:col-span-2">
-        <h3 className="text-lg font-semibold mb-4">Weekly Spending Trend</h3>
-        <p className="text-sm text-slate-600 mb-4">Last 8 weeks of spending activity</p>
+        <h3 className="text-lg font-semibold mb-4 dark:text-white">Weekly Spending Trend</h3>
+        <p className="text-sm text-muted-foreground mb-4">Last 8 weeks of spending activity</p>
         {weeklyTrend.length > 0 ? (
-          <div className="w-full h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={weeklyTrend} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="week" 
-                  angle={-45}
-                  textAnchor="end"
-                  height={60}
-                  fontSize={12}
-                />
-                <YAxis />
-                <Tooltip content={renderBarTooltip} />
-                <Bar dataKey="spending" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <EnhancedBarChart
+            data={weeklyTrend}
+            dataKey="spending"
+            xAxisKey="week"
+            title="Weekly Spending"
+            color="hsl(var(--primary))"
+          />
         ) : (
-          <div className="h-80 flex items-center justify-center text-slate-500">
-            No transaction data available
-          </div>
+          <NoDataEmpty />
         )}
       </Card>
 
       {/* Category Breakdown */}
       <Card className="p-6 lg:col-span-3">
-        <h3 className="text-lg font-semibold mb-4">Parent Category Breakdown</h3>
+        <h3 className="text-lg font-semibold mb-4 dark:text-white">Parent Category Breakdown</h3>
         <div className="space-y-3">
           {parentCategorySpending.map((category, index) => (
-            <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+            <div key={index} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
               <div className="flex items-center gap-3">
                 <div 
                   className="w-4 h-4 rounded-full" 
                   style={{ backgroundColor: category.color }}
                 ></div>
                 <div>
-                  <span className="font-medium">{category.category}</span>
-                  <div className="text-sm text-slate-500">
+                  <span className="font-medium dark:text-white">{category.category}</span>
+                  <div className="text-sm text-muted-foreground">
                     {category.subcategoryCount} subcategories
                   </div>
                 </div>
               </div>
               <div className="text-right">
-                <span className="font-semibold">${category.amount.toFixed(2)}</span>
-                <div className="text-sm text-slate-500">
+                <span className="font-semibold dark:text-white">${category.amount.toFixed(2)}</span>
+                <div className="text-sm text-muted-foreground">
                   {totalSpending > 0 ? ((category.amount / totalSpending) * 100).toFixed(1) : 0}%
                 </div>
               </div>
             </div>
           ))}
           {parentCategorySpending.length === 0 && (
-            <div className="text-center text-slate-500 py-8">
-              No expenses recorded
-            </div>
+            <NoDataEmpty />
           )}
         </div>
       </Card>

@@ -2,9 +2,11 @@
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
+import { ChartSkeleton } from '@/components/ui/enhanced-skeleton';
+import { NoTrendsEmpty, NoDataEmpty } from '@/components/ui/empty-state';
+import { EnhancedAreaChart, EnhancedLineChart } from '@/components/ui/enhanced-chart';
 
 const TrendsAnalysis = () => {
   const [timeRange, setTimeRange] = useState('6months');
@@ -15,10 +17,22 @@ const TrendsAnalysis = () => {
 
   if (transactionsLoading || categoriesLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+      <div className="space-y-6">
+        <ChartSkeleton />
+        <ChartSkeleton />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <ChartSkeleton />
+          <ChartSkeleton />
+          <ChartSkeleton />
+        </div>
       </div>
     );
+  }
+
+  const expenseTransactions = transactions.filter(t => t.type === 'expense');
+
+  if (expenseTransactions.length < 3) {
+    return <NoTrendsEmpty />;
   }
 
   // Generate monthly trends data
@@ -32,8 +46,8 @@ const TrendsAnalysis = () => {
       const monthKey = date.toISOString().slice(0, 7); // YYYY-MM format
       const monthName = date.toLocaleDateString('en-US', { month: 'short' });
       
-      const monthTransactions = transactions.filter(t => 
-        t.date.startsWith(monthKey) && t.type === 'expense'
+      const monthTransactions = expenseTransactions.filter(t => 
+        t.date.startsWith(monthKey)
       );
       
       const total = monthTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
@@ -60,8 +74,8 @@ const TrendsAnalysis = () => {
   // Calculate insights
   const getCurrentMonthSpending = () => {
     const currentMonth = new Date().toISOString().slice(0, 7);
-    return transactions
-      .filter(t => t.date.startsWith(currentMonth) && t.type === 'expense')
+    return expenseTransactions
+      .filter(t => t.date.startsWith(currentMonth))
       .reduce((sum, t) => sum + Number(t.amount), 0);
   };
 
@@ -69,8 +83,8 @@ const TrendsAnalysis = () => {
     const prevMonth = new Date();
     prevMonth.setMonth(prevMonth.getMonth() - 1);
     const prevMonthKey = prevMonth.toISOString().slice(0, 7);
-    return transactions
-      .filter(t => t.date.startsWith(prevMonthKey) && t.type === 'expense')
+    return expenseTransactions
+      .filter(t => t.date.startsWith(prevMonthKey))
       .reduce((sum, t) => sum + Number(t.amount), 0);
   };
 
@@ -88,14 +102,16 @@ const TrendsAnalysis = () => {
     }))
   ];
 
+  const chartColors = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))'];
+
   return (
     <div className="space-y-6">
       {/* Controls */}
       <Card className="p-6">
         <div className="flex flex-wrap gap-4 items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold mb-2">Spending Trends Analysis</h2>
-            <p className="text-slate-600">Track your spending patterns over time</p>
+            <h2 className="text-xl font-semibold mb-2 dark:text-white">Spending Trends Analysis</h2>
+            <p className="text-muted-foreground">Track your spending patterns over time</p>
           </div>
           <div className="flex gap-3">
             <Select value={timeRange} onValueChange={setTimeRange}>
@@ -126,72 +142,57 @@ const TrendsAnalysis = () => {
 
       {/* Monthly Trend Chart */}
       <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Monthly Spending Trend</h3>
-        <ResponsiveContainer width="100%" height={400}>
-          <AreaChart data={monthlyTrends}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="month" />
-            <YAxis />
-            <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}`} />
-            <Area 
-              type="monotone" 
-              dataKey="total" 
-              stroke="#3B82F6" 
-              fill="#3B82F6" 
-              fillOpacity={0.1}
-              strokeWidth={2}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+        <h3 className="text-lg font-semibold mb-4 dark:text-white">Monthly Spending Trend</h3>
+        {monthlyTrends.length > 0 ? (
+          <EnhancedAreaChart
+            data={monthlyTrends}
+            dataKey="total"
+            xAxisKey="month"
+            title="Total Spending"
+            color="hsl(var(--primary))"
+          />
+        ) : (
+          <NoDataEmpty />
+        )}
       </Card>
 
       {/* Category Comparison */}
       <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Category Trends Comparison</h3>
-        <ResponsiveContainer width="100%" height={400}>
-          <LineChart data={monthlyTrends}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="month" />
-            <YAxis />
-            <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}`} />
-            <Legend />
-            {categories.slice(0, 4).map((cat, index) => {
-              const colors = ['#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
-              const dataKey = cat.name.toLowerCase().replace(/\s+/g, '');
-              return (
-                <Line 
-                  key={cat.id}
-                  type="monotone" 
-                  dataKey={dataKey} 
-                  stroke={colors[index]} 
-                  strokeWidth={2} 
-                  name={cat.name} 
-                />
-              );
-            })}
-          </LineChart>
-        </ResponsiveContainer>
+        <h3 className="text-lg font-semibold mb-4 dark:text-white">Category Trends Comparison</h3>
+        {categories.length > 0 && monthlyTrends.length > 0 ? (
+          <EnhancedLineChart
+            data={monthlyTrends}
+            xAxisKey="month"
+            lines={categories.slice(0, 4).map((cat, index) => ({
+              dataKey: cat.name.toLowerCase().replace(/\s+/g, ''),
+              color: chartColors[index],
+              name: cat.name
+            }))}
+          />
+        ) : (
+          <NoDataEmpty />
+        )}
       </Card>
 
       {/* Insights */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Card className={`p-6 bg-gradient-to-r ${spendingChange < 0 ? 'from-green-50 to-green-100 border-green-200' : 'from-red-50 to-red-100 border-red-200'}`}>
-          <h4 className={`font-semibold mb-2 ${spendingChange < 0 ? 'text-green-800' : 'text-red-800'}`}>
+        <Card className={`p-6 ${spendingChange < 0 ? 'bg-gradient-to-r from-green-50 to-green-100 border-green-200 dark:from-green-900/20 dark:to-green-800/20' : 'bg-gradient-to-r from-red-50 to-red-100 border-red-200 dark:from-red-900/20 dark:to-red-800/20'}`}>
+          <h4 className={`font-semibold mb-2 ${spendingChange < 0 ? 'text-green-800 dark:text-green-300' : 'text-red-800 dark:text-red-300'}`}>
             {spendingChange < 0 ? 'Spending Down' : 'Spending Up'}
           </h4>
-          <p className={spendingChange < 0 ? 'text-green-700' : 'text-red-700'}>
+          <p className={spendingChange < 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}>
             {Math.abs(spendingChange).toFixed(1)}% {spendingChange < 0 ? 'decrease' : 'increase'} from last month
           </p>
         </Card>
         
-        <Card className="p-6 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
-          <h4 className="font-semibold text-blue-800 mb-2">Current Month</h4>
-          <p className="text-blue-700">${currentSpending.toFixed(2)} spent so far</p>
+        <Card className="p-6 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200 dark:from-blue-900/20 dark:to-blue-800/20">
+          <h4 className="font-semibold text-blue-800 dark:text-blue-300 mb-2">Current Month</h4>
+          <p className="text-blue-700 dark:text-blue-400">${currentSpending.toFixed(2)} spent so far</p>
         </Card>
         
-        <Card className="p-6 bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200">
-          <h4 className="font-semibold text-purple-800 mb-2">Total Transactions</h4>
-          <p className="text-purple-700">{transactions.length} transactions recorded</p>
+        <Card className="p-6 bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200 dark:from-purple-900/20 dark:to-purple-800/20">
+          <h4 className="font-semibold text-purple-800 dark:text-purple-300 mb-2">Total Transactions</h4>
+          <p className="text-purple-700 dark:text-purple-400">{transactions.length} transactions recorded</p>
         </Card>
       </div>
     </div>
