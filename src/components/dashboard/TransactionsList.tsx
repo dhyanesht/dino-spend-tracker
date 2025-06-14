@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -11,6 +10,9 @@ import { Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTransactions, useDeleteMultipleTransactions } from '@/hooks/useTransactions';
 import { useSubcategories } from '@/hooks/useCategories';
+import { useMobile } from '@/hooks/useMobile';
+import StaticTransactionRow from './StaticTransactionRow';
+import SwipeableTransactionRow from './SwipeableTransactionRow';
 import EditTransactionDialog from './EditTransactionDialog';
 
 const TransactionsList = () => {
@@ -22,6 +24,7 @@ const TransactionsList = () => {
   const { data: transactions = [], isLoading: transactionsLoading } = useTransactions();
   const { data: subcategories = [], isLoading: subcategoriesLoading } = useSubcategories();
   const deleteTransactions = useDeleteMultipleTransactions();
+  const isMobile = useMobile();
 
   if (transactionsLoading || subcategoriesLoading) {
     return (
@@ -149,74 +152,52 @@ const TransactionsList = () => {
 
         <div className="border rounded-lg overflow-x-auto">
           <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12 px-2">
-                  <Checkbox
-                    checked={isAllSelected ? true : isSomeSelected ? 'indeterminate' : false}
-                    onCheckedChange={(checked) => handleSelectAll(!!checked)}
-                    aria-label="Select all"
-                  />
-                </TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Parent Category</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead className="w-16">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
+            {!isMobile && (
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12 px-2">
+                    <Checkbox
+                      checked={isAllSelected ? true : isSomeSelected ? 'indeterminate' : false}
+                      onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                      aria-label="Select all"
+                    />
+                  </TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Parent Category</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead className="w-16">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+            )}
             <TableBody>
               {filteredTransactions.length > 0 ? (
                 filteredTransactions.map((transaction) => (
-                  <TableRow 
-                    key={transaction.id}
-                    data-state={selectedTransactions.includes(transaction.id) ? "selected" : undefined}
-                  >
-                    <TableCell className="px-2">
-                      <Checkbox
-                        checked={selectedTransactions.includes(transaction.id)}
-                        onCheckedChange={(checked) => handleSelectOne(transaction.id, !!checked)}
-                        aria-label={`Select transaction ${transaction.description}`}
-                      />
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {new Date(transaction.date).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="max-w-xs truncate">{transaction.description}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="w-3 h-3 rounded-full flex-shrink-0" 
-                          style={{ backgroundColor: getCategoryColor(transaction.category) }}
-                        ></div>
-                        <span className="truncate">{transaction.category}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-slate-600 truncate">
-                        {getParentCategory(transaction.category) || 'N/A'}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={transaction.type === 'expense' ? 'destructive' : 'default'}>
-                        {transaction.type}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      <span className={transaction.type === 'expense' ? 'text-red-600' : 'text-green-600'}>
-                        {transaction.type === 'expense' ? '-' : '+'}${Number(transaction.amount).toFixed(2)}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <EditTransactionDialog transaction={transaction} />
-                    </TableCell>
-                  </TableRow>
+                  isMobile ? (
+                    <SwipeableTransactionRow
+                      key={transaction.id}
+                      transaction={transaction}
+                      isSelected={selectedTransactions.includes(transaction.id)}
+                      onSelectOne={handleSelectOne}
+                      onDelete={deleteTransactions.mutateAsync}
+                      getCategoryColor={getCategoryColor}
+                    />
+                  ) : (
+                    <StaticTransactionRow
+                      key={transaction.id}
+                      transaction={transaction}
+                      isSelected={selectedTransactions.includes(transaction.id)}
+                      onSelectOne={handleSelectOne}
+                      getCategoryColor={getCategoryColor}
+                      getParentCategory={getParentCategory}
+                    />
+                  )
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-slate-500">
+                  <TableCell colSpan={isMobile ? 1 : 8} className="text-center py-8 text-slate-500">
                     No transactions found matching your filters
                   </TableCell>
                 </TableRow>
