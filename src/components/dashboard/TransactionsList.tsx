@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
@@ -9,6 +8,7 @@ import { useTransactionFilters } from '@/hooks/useTransactionFilters';
 import TransactionListHeader from './TransactionListHeader';
 import TransactionFilters from './TransactionFilters';
 import TransactionTable from './TransactionTable';
+import { useAdmin } from '@/contexts/AdminContext';
 
 const TransactionsList = () => {
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
@@ -24,6 +24,8 @@ const TransactionsList = () => {
     handleResetFilters,
     filteredTransactions,
   } = useTransactionFilters(transactions);
+
+  const { isAdmin } = useAdmin();
 
   if (transactionsLoading || subcategoriesLoading) {
     return (
@@ -60,6 +62,7 @@ const TransactionsList = () => {
   };
 
   const handleDeleteSelected = async () => {
+    if (!isAdmin) return;
     await deleteTransactions.mutateAsync(selectedTransactions, {
       onSuccess: () => {
         toast.success(`${selectedTransactions.length} transaction(s) deleted.`);
@@ -85,6 +88,7 @@ const TransactionsList = () => {
             totalCount={transactions.length}
             onDeleteSelected={handleDeleteSelected}
             isDeletePending={deleteTransactions.isPending}
+            isAdmin={isAdmin}
           />
           
           <TransactionFilters

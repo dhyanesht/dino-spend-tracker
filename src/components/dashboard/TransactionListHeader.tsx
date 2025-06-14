@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Trash2 } from 'lucide-react';
@@ -8,6 +9,7 @@ interface TransactionListHeaderProps {
   totalCount: number;
   onDeleteSelected: () => void;
   isDeletePending: boolean;
+  isAdmin?: boolean;
 }
 
 const TransactionListHeader = ({
@@ -16,6 +18,7 @@ const TransactionListHeader = ({
   totalCount,
   onDeleteSelected,
   isDeletePending,
+  isAdmin = false,
 }: TransactionListHeaderProps) => {
   return (
     <div>
@@ -26,7 +29,9 @@ const TransactionListHeader = ({
             variant="destructive"
             size="sm"
             onClick={onDeleteSelected}
-            disabled={isDeletePending}
+            disabled={isDeletePending || !isAdmin}
+            className={!isAdmin ? "opacity-60 cursor-not-allowed" : ""}
+            title={!isAdmin ? "Unlock edit mode to delete transactions" : undefined}
           >
             <Trash2 className="w-4 h-4 mr-2" />
             <span>Delete</span>

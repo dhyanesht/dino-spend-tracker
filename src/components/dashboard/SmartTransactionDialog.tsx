@@ -10,6 +10,7 @@ import { useAddTransaction } from '@/hooks/useTransactions';
 import { useSubcategories } from '@/hooks/useCategories';
 import { useStoreByName, useAddStore } from '@/hooks/useStores';
 import { toast } from 'sonner';
+import { useAdmin } from '@/contexts/AdminContext';
 
 const SmartTransactionDialog = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -21,6 +22,8 @@ const SmartTransactionDialog = () => {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [showCategorySelection, setShowCategorySelection] = useState(false);
 
+  const { isAdmin } = useAdmin();
+
   const { data: subcategories = [] } = useSubcategories();
   const { data: storeData } = useStoreByName(storeName);
   const addTransaction = useAddTransaction();
@@ -29,12 +32,10 @@ const SmartTransactionDialog = () => {
   // Watch for store lookup results
   useEffect(() => {
     if (storeData) {
-      console.log('Found existing store mapping:', storeData);
       setSuggestedCategory(storeData.category_name);
       setSelectedCategory(storeData.category_name);
       setShowCategorySelection(false);
     } else if (storeName && storeName.length > 2) {
-      console.log('No existing mapping found for store:', storeName);
       setSuggestedCategory('');
       setSelectedCategory('');
       setShowCategorySelection(true);
@@ -52,7 +53,6 @@ const SmartTransactionDialog = () => {
     try {
       // If this is a new store, save the store-category mapping
       if (!storeData && storeName && selectedCategory) {
-        console.log('Creating new store mapping:', storeName, '→', selectedCategory);
         await addStore.mutateAsync({
           name: storeName,
           category_name: selectedCategory,
@@ -70,8 +70,6 @@ const SmartTransactionDialog = () => {
       });
 
       toast.success('Transaction added successfully!');
-      
-      // Reset form
       setDescription('');
       setAmount('');
       setStoreName('');
@@ -80,10 +78,20 @@ const SmartTransactionDialog = () => {
       setShowCategorySelection(false);
       setIsOpen(false);
     } catch (error) {
-      console.error('Error adding transaction:', error);
       toast.error('Failed to add transaction');
     }
   };
+
+  if (!isAdmin) {
+    // Read-only: Button disabled with tooltip.
+    return (
+      <Button className="flex items-center gap-2 cursor-not-allowed opacity-60" disabled>
+        <Plus className="w-4 h-4" />
+        Add Transaction
+        <span className="sr-only">Unlock edit mode to add transactions</span>
+      </Button>
+    );
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -107,7 +115,6 @@ const SmartTransactionDialog = () => {
               onChange={(e) => setDate(e.target.value)}
             />
           </div>
-
           <div>
             <Label htmlFor="storeName">Store Name</Label>
             <Input
@@ -122,7 +129,6 @@ const SmartTransactionDialog = () => {
               </p>
             )}
           </div>
-
           <div>
             <Label htmlFor="description">Description</Label>
             <Input
@@ -132,7 +138,6 @@ const SmartTransactionDialog = () => {
               placeholder="What did you buy?"
             />
           </div>
-
           <div>
             <Label htmlFor="amount">Amount</Label>
             <Input
@@ -144,7 +149,6 @@ const SmartTransactionDialog = () => {
               placeholder="0.00"
             />
           </div>
-
           {showCategorySelection && (
             <div>
               <Label htmlFor="category">Select Category for "{storeName}"</Label>
@@ -168,7 +172,6 @@ const SmartTransactionDialog = () => {
               </p>
             </div>
           )}
-
           {suggestedCategory && (
             <div>
               <Label htmlFor="categoryOverride">Category (auto-detected)</Label>
@@ -189,7 +192,6 @@ const SmartTransactionDialog = () => {
               </Select>
             </div>
           )}
-
           <Button 
             onClick={handleSubmit} 
             className="w-full"

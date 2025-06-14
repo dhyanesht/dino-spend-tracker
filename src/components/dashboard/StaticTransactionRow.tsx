@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { TableRow, TableCell } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -16,10 +15,12 @@ interface StaticTransactionRowProps {
   onDelete: (ids: string[]) => Promise<any>;
   getCategoryColor: (category: string) => string;
   getParentCategory: (category: string) => string | null;
+  isReadOnly?: boolean;
 }
 
-const StaticTransactionRow = ({ transaction, isSelected, onSelectOne, onDelete, getCategoryColor, getParentCategory }: StaticTransactionRowProps) => {
+const StaticTransactionRow = ({ transaction, isSelected, onSelectOne, onDelete, getCategoryColor, getParentCategory, isReadOnly }: StaticTransactionRowProps) => {
   const handleDelete = () => {
+    if (isReadOnly) return;
     onDelete([transaction.id])
       .then(() => {
         toast.success('Transaction deleted.');
@@ -37,8 +38,9 @@ const StaticTransactionRow = ({ transaction, isSelected, onSelectOne, onDelete, 
       <TableCell className="px-2">
         <Checkbox
           checked={isSelected}
-          onCheckedChange={(checked) => onSelectOne(transaction.id, !!checked)}
+          onCheckedChange={isReadOnly ? undefined : (checked) => onSelectOne(transaction.id, !!checked)}
           aria-label={`Select transaction ${transaction.description}`}
+          disabled={isReadOnly}
         />
       </TableCell>
       <TableCell className="font-medium">
@@ -71,8 +73,8 @@ const StaticTransactionRow = ({ transaction, isSelected, onSelectOne, onDelete, 
       </TableCell>
       <TableCell>
         <div className="flex items-center justify-end">
-          <EditTransactionDialog transaction={transaction} />
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleDelete}>
+          {isReadOnly ? null : <EditTransactionDialog transaction={transaction} />}
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleDelete} disabled={isReadOnly}>
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
