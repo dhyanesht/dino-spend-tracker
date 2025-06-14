@@ -255,14 +255,14 @@ const StoreManager = () => {
       </div>
 
       {/* Test transaction matching UI */}
-      <div className="my-8 p-4 border rounded-lg bg-slate-50">
+      <div className="my-8 p-4 rounded-lg border bg-card dark:bg-card border-border">
         <h3 className="font-semibold mb-2">Test Store Matching</h3>
         <div className="flex flex-col md:flex-row md:items-center gap-2">
           <input
             value={testDescription}
             onChange={e => setTestDescription(e.target.value)}
             placeholder="Enter a transaction description (e.g. LYFT *RIDE SUN 2AM 8552800278)"
-            className="border px-3 py-2 rounded w-full md:w-96 text-base"
+            className="border px-3 py-2 rounded w-full md:w-96 text-base bg-background dark:bg-background text-foreground"
           />
           <Button
             onClick={handleTestDescription}
@@ -284,16 +284,16 @@ const StoreManager = () => {
             <div>
               <span className="text-sm text-muted-foreground">Matching Store:</span>
               {testResult.match ? (
-                <div className="font-mono text-green-700">
+                <div className="font-mono text-green-700 dark:text-green-400">
                   {testResult.match.name}
                   {testResult.match.category_name && (
-                    <span className="ml-2 text-xs text-slate-500">
+                    <span className="ml-2 text-xs text-slate-500 dark:text-slate-400">
                       (Category: {testResult.match.category_name})
                     </span>
                   )}
                 </div>
               ) : (
-                <div className="font-mono text-red-600">No Match Found</div>
+                <div className="font-mono text-red-600 dark:text-red-400">No Match Found</div>
               )}
             </div>
           </div>
