@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -9,6 +8,7 @@ import { useStores, useUpdateStore } from '@/hooks/useStores';
 import { useSubcategories } from '@/hooks/useCategories';
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { extractStoreName, findBestStoreMatch } from '@/hooks/useStores';
 
 // Custom hook for deleting a store
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -32,6 +32,11 @@ const StoreManager = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editCategory, setEditCategory] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<{ id: string, name: string } | null>(null);
+  const [testDescription, setTestDescription] = useState('');
+  const [testResult, setTestResult] = useState<{
+    extracted: string;
+    match: any;
+  } | null>(null);
 
   const { data: stores = [], isLoading } = useStores();
   const { data: subcategories = [] } = useSubcategories();
@@ -74,6 +79,15 @@ const StoreManager = () => {
     } finally {
       setDeleteTarget(null);
     }
+  };
+
+  const handleTestDescription = () => {
+    const extracted = extractStoreName(testDescription);
+    const match = findBestStoreMatch(testDescription, stores);
+    setTestResult({
+      extracted,
+      match,
+    });
   };
 
   if (isLoading) {
@@ -216,6 +230,52 @@ const StoreManager = () => {
             )}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Test transaction matching UI */}
+      <div className="my-8 p-4 border rounded-lg bg-slate-50">
+        <h3 className="font-semibold mb-2">Test Store Matching</h3>
+        <div className="flex flex-col md:flex-row md:items-center gap-2">
+          <input
+            value={testDescription}
+            onChange={e => setTestDescription(e.target.value)}
+            placeholder="Enter a transaction description (e.g. LYFT *RIDE SUN 2AM 8552800278)"
+            className="border px-3 py-2 rounded w-full md:w-96 text-base"
+          />
+          <Button
+            onClick={handleTestDescription}
+            type="button"
+            variant="default"
+            className="md:ml-2"
+            disabled={!testDescription.trim()}
+          >
+            Check
+          </Button>
+        </div>
+
+        {testResult && (
+          <div className="mt-3 space-y-2">
+            <div>
+              <span className="text-sm text-muted-foreground">Extracted Store Name:</span>
+              <div className="font-mono break-all">{testResult.extracted}</div>
+            </div>
+            <div>
+              <span className="text-sm text-muted-foreground">Matching Store:</span>
+              {testResult.match ? (
+                <div className="font-mono text-green-700">
+                  {testResult.match.name}
+                  {testResult.match.category_name && (
+                    <span className="ml-2 text-xs text-slate-500">
+                      (Category: {testResult.match.category_name})
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <div className="font-mono text-red-600">No Match Found</div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </Card>
   );
