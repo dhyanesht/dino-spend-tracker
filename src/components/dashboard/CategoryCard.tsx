@@ -1,9 +1,11 @@
-import React from 'react';
+
+import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Edit, Trash2, FolderOpen, Folder } from 'lucide-react';
 import { Category } from '@/hooks/useCategories';
+import { useAdmin } from '@/contexts/AdminContext';
 
 interface CategoryCardProps {
   category: Category;
@@ -11,9 +13,11 @@ interface CategoryCardProps {
   hasSubcategories: boolean;
   subcategoryCount: number;
   onEdit?: () => void;
-  onDelete: () => void;
+  onDelete?: () => void;
+  onUpdateColor?: (color: string) => void;
   onClick?: () => void;
   isDeleting?: boolean;
+  isUpdating?: boolean;
 }
 
 const CategoryCard = ({ 
@@ -23,13 +27,31 @@ const CategoryCard = ({
   subcategoryCount,
   onEdit, 
   onDelete, 
+  onUpdateColor,
   onClick,
-  isDeleting 
+  isDeleting,
+  isUpdating
 }: CategoryCardProps) => {
+  const { isAdmin } = useAdmin();
+  const [isEditingColor, setIsEditingColor] = useState(false);
+  const [pendingColor, setPendingColor] = useState(category.color || '#3B82F6');
+  
   const budgetStatus = getBudgetStatus(spent, Number(category.monthly_budget));
   const spentPercentage = category.monthly_budget > 0 
     ? Math.min((spent / Number(category.monthly_budget)) * 100, 100) 
     : 0;
+
+  const handleColorSave = () => {
+    if (onUpdateColor) {
+      onUpdateColor(pendingColor);
+      setIsEditingColor(false);
+    }
+  };
+
+  const handleColorCancel = () => {
+    setPendingColor(category.color || '#3B82F6');
+    setIsEditingColor(false);
+  };
 
   return (
     <Card 
@@ -37,43 +59,94 @@ const CategoryCard = ({
       onClick={hasSubcategories ? onClick : undefined}
     >
       <div className="flex justify-between items-start mb-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {hasSubcategories && (
             <FolderOpen className="w-5 h-5 text-blue-500" />
           )}
-          <div>
-            <h3 className="font-semibold text-lg">{category.name}</h3>
-            <div className="flex gap-2 mt-1">
-              <Badge variant={category.type === 'fixed' ? 'secondary' : 'outline'}>
-                {category.type === 'fixed' ? 'Fixed' : 'Variable'}
-              </Badge>
-              {hasSubcategories && (
-                <Badge variant="outline" className="text-blue-600">
-                  {subcategoryCount} subcategories
+          
+          {/* Color dot with edit functionality */}
+          <div className="flex items-center gap-2">
+            {isAdmin && isEditingColor ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={pendingColor}
+                  onChange={(e) => setPendingColor(e.target.value)}
+                  className="w-6 h-6 border-none p-0 bg-transparent cursor-pointer rounded-full"
+                  disabled={isUpdating}
+                />
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleColorSave();
+                  }}
+                  className={`text-xs px-2 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 transition ${isUpdating ? 'opacity-50 cursor-wait' : ''}`}
+                  disabled={isUpdating}
+                >
+                  {isUpdating ? "Saving..." : "Save"}
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleColorCancel();
+                  }}
+                  className="text-xs px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50"
+                  disabled={isUpdating}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isAdmin) {
+                    setIsEditingColor(true);
+                  }
+                }}
+                className={`w-5 h-5 rounded-full border border-gray-300 ${isAdmin ? 'cursor-pointer hover:scale-105 transition' : 'cursor-default'}`}
+                style={{ backgroundColor: category.color || '#3B82F6' }}
+                disabled={!isAdmin}
+                title={isAdmin ? "Click to edit color" : "Category color"}
+              />
+            )}
+            
+            <div>
+              <h3 className="font-semibold text-lg">{category.name}</h3>
+              <div className="flex gap-2 mt-1">
+                <Badge variant={category.type === 'fixed' ? 'secondary' : 'outline'}>
+                  {category.type === 'fixed' ? 'Fixed' : 'Variable'}
                 </Badge>
-              )}
+                {hasSubcategories && (
+                  <Badge variant="outline" className="text-blue-600">
+                    {subcategoryCount} subcategories
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
         </div>
         
-        {!hasSubcategories && (
+        {!hasSubcategories && isAdmin && (
           <div className="flex gap-1">
             {onEdit && (
               <Button variant="ghost" size="sm" onClick={onEdit}>
                 <Edit className="w-4 h-4" />
               </Button>
             )}
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete();
-              }}
-              disabled={isDeleting}
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
+            {onDelete && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete();
+                }}
+                disabled={isDeleting}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            )}
           </div>
         )}
       </div>

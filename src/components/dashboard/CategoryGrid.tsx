@@ -7,9 +7,11 @@ interface CategoryGridProps {
   categories: Category[];
   allCategories: Category[];
   getSpentAmount: (categoryName: string) => number;
-  onDeleteCategory: (id: string) => void;
+  onDeleteCategory?: (id: string) => void;
+  onUpdateCategoryColor?: (categoryId: string, color: string) => void;
   onClick?: (categoryName: string) => void;
   isDeleting: boolean;
+  isUpdating?: boolean;
 }
 
 const CategoryGrid = ({
@@ -17,8 +19,10 @@ const CategoryGrid = ({
   allCategories,
   getSpentAmount,
   onDeleteCategory,
+  onUpdateCategoryColor,
   onClick,
-  isDeleting
+  isDeleting,
+  isUpdating
 }: CategoryGridProps) => {
   const getSubcategoryCount = (parentCategoryName: string) => {
     return allCategories.filter(cat => cat.parent_category === parentCategoryName).length;
@@ -39,8 +43,10 @@ const CategoryGrid = ({
             hasSubcategories={isParentCategory && subcategoryCount > 0}
             subcategoryCount={subcategoryCount}
             onClick={onClick ? () => onClick(category.name) : undefined}
-            onDelete={() => onDeleteCategory(category.id)}
+            onDelete={onDeleteCategory ? () => onDeleteCategory(category.id) : undefined}
+            onUpdateColor={onUpdateCategoryColor ? (color: string) => onUpdateCategoryColor(category.id, color) : undefined}
             isDeleting={isDeleting}
+            isUpdating={isUpdating}
           />
         );
       })}

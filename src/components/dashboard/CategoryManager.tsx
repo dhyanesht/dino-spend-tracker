@@ -23,11 +23,6 @@ const CategoryManager = () => {
     parent_category: null as string | null,
   });
 
-  // For handling color picker state on each card
-  const [editingColorId, setEditingColorId] = useState<string | null>(null);
-  const [pendingColor, setPendingColor] = useState<string>('');
-  const [colorSavingId, setColorSavingId] = useState<string | null>(null);
-
   const { data: allCategories = [], isLoading: categoriesLoading } = useCategories();
   const { data: parentCategories = [], isLoading: parentLoading } = useParentCategories();
   const { data: subcategories = [], isLoading: subcategoriesLoading } = useSubcategories();
@@ -83,37 +78,21 @@ const CategoryManager = () => {
     }
   };
 
+  const handleUpdateCategoryColor = async (categoryId: string, color: string) => {
+    try {
+      await updateCategory.mutateAsync({ id: categoryId, color });
+      toast.success('Category color updated successfully!');
+    } catch (error) {
+      console.error('Error updating category color:', error);
+      toast.error('Failed to update category color');
+    }
+  };
+
   const getCurrentCategories = () => {
     if (selectedMainCategory) {
       return subcategories.filter(cat => cat.parent_category === selectedMainCategory);
     }
     return parentCategories;
-  };
-
-  const handleStartColorEdit = (category: {id: string, color: string}) => {
-    setEditingColorId(category.id);
-    setPendingColor(category.color || "#3B82F6");
-  };
-
-  const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setPendingColor(e.target.value);
-  };
-
-  const handleSaveColor = async (category: {id: string, name: string}) => {
-    setColorSavingId(category.id);
-    try {
-      await updateCategory.mutateAsync({ id: category.id, color: pendingColor });
-      toast.success(`Color updated for "${category.name}".`);
-      setEditingColorId(null);
-    } catch {
-      toast.error("Failed to update category color");
-    } finally {
-      setColorSavingId(null);
-    }
-  };
-
-  const handleCancelEdit = () => {
-    setEditingColorId(null);
   };
 
   if (categoriesLoading || parentLoading || subcategoriesLoading) {
@@ -169,79 +148,15 @@ const CategoryManager = () => {
             </Button>
           </div>
 
-          {/* Parent categories grid with color next to name, editable as admin */}
-          {!selectedMainCategory && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {parentCategories.map((cat) => (
-                <div
-                  key={cat.id}
-                  className="flex items-center justify-between rounded-lg bg-white dark:bg-slate-800 border p-4"
-                >
-                  <div className="flex items-center gap-3">
-                    {/* Color dot next to name; editable if admin */}
-                    {isAdmin ? (
-                      editingColorId === cat.id ? (
-                        <div className="relative flex items-center group">
-                          <input
-                            type="color"
-                            value={pendingColor}
-                            onChange={handleColorChange}
-                            className="w-7 h-7 border-none p-0 bg-transparent cursor-pointer rounded-full"
-                            aria-label="Pick color"
-                            disabled={colorSavingId === cat.id}
-                            style={{ background: "none", appearance: "none", outline: "none" }}
-                          />
-                          <button
-                            onClick={() => handleSaveColor(cat)}
-                            className={`ml-2 text-xs px-2 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 transition ${colorSavingId === cat.id ? 'opacity-50 cursor-wait' : ''}`}
-                            disabled={colorSavingId === cat.id}
-                          >
-                            {colorSavingId === cat.id ? "Saving..." : "Save"}
-                          </button>
-                          <button
-                            onClick={handleCancelEdit}
-                            className="ml-1 text-xs px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50 dark:bg-slate-700 dark:border-slate-600"
-                            disabled={colorSavingId === cat.id}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => handleStartColorEdit(cat)}
-                          className="relative border-none outline-none bg-transparent flex items-center p-0 hover:scale-105 duration-150 transition cursor-pointer"
-                          aria-label={`Edit color for category ${cat.name}`}
-                          title="Edit category color"
-                          style={{ background: 'none' }}
-                        >
-                          <span
-                            className="block w-5 h-5 rounded-full"
-                            style={{ background: cat.color || "#3B82F6" }}
-                          />
-                        </button>
-                      )
-                    ) : (
-                      <span
-                        className="block w-5 h-5 rounded-full border border-gray-300"
-                        style={{ background: cat.color || "#3B82F6" }}
-                        aria-label="Category color"
-                      />
-                    )}
-                    <span className="text-lg font-semibold">{cat.name}</span>
-                  </div>
-                  {/* You may add more info/controls here */}
-                </div>
-              ))}
-            </div>
-          )}
-
           <CategoryGrid
             categories={getCurrentCategories()}
             allCategories={allCategories}
             getSpentAmount={getSpentAmount}
             onDeleteCategory={isAdmin ? handleDeleteCategory : undefined}
+            onUpdateCategoryColor={isAdmin ? handleUpdateCategoryColor : undefined}
             onClick={selectedMainCategory ? undefined : (isAdmin ? handleCategoryClick : undefined)}
             isDeleting={deleteCategory.isPending}
+            isUpdating={updateCategory.isPending}
           />
 
           <CategoryDialog
@@ -265,4 +180,3 @@ const CategoryManager = () => {
 };
 
 export default CategoryManager;
-
