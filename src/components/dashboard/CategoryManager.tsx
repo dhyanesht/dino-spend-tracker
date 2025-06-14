@@ -9,6 +9,7 @@ import CategoryDialog from './CategoryDialog';
 import StoreManager from './StoreManager';
 import { toast } from 'sonner';
 import { useAdmin } from '@/contexts/AdminContext';
+import ParentCategoryColorPicker from './ParentCategoryColorPicker';
 
 const CategoryManager = () => {
   const { isAdmin } = useAdmin();
@@ -135,6 +136,32 @@ const CategoryManager = () => {
               Add Category
             </Button>
           </div>
+
+          {/* Parent categories grid with color edit */}
+          {!selectedMainCategory && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {parentCategories.map((cat) => (
+                <div
+                  key={cat.id}
+                  className="flex items-center justify-between rounded-lg bg-white dark:bg-slate-800 border p-4"
+                >
+                  <div>
+                    <div className="font-semibold">{cat.name}</div>
+                  </div>
+                  {isAdmin && (
+                    <ParentCategoryColorPicker category={cat} />
+                  )}
+                  {!isAdmin && (
+                    <div
+                      className="w-8 h-8 rounded border"
+                      style={{ background: cat.color || "#3B82F6" }}
+                      aria-label="Category color"
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
 
           <CategoryGrid
             categories={getCurrentCategories()}
