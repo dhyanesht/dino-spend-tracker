@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -7,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Trash2, Calendar as CalendarIcon } from 'lucide-react';
+import { Trash2, Calendar as CalendarIcon, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTransactions, useDeleteMultipleTransactions } from '@/hooks/useTransactions';
 import { useSubcategories } from '@/hooks/useCategories';
@@ -19,14 +18,14 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { DateRange } from 'react-day-picker';
 
 const TransactionsList = () => {
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterType, setFilterType] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
-  const [startDate, setStartDate] = useState<Date | undefined>();
-  const [endDate, setEndDate] = useState<Date | undefined>();
+  const [date, setDate] = useState<DateRange | undefined>();
   const [minAmount, setMinAmount] = useState('');
   const [maxAmount, setMaxAmount] = useState('');
   
@@ -43,8 +42,8 @@ const TransactionsList = () => {
     );
   }
 
-  const formattedStartDate = startDate ? format(startDate, 'yyyy-MM-dd') : null;
-  const formattedEndDate = endDate ? format(endDate, 'yyyy-MM-dd') : null;
+  const formattedStartDate = date?.from ? format(date.from, 'yyyy-MM-dd') : null;
+  const formattedEndDate = date?.to ? format(date.to, 'yyyy-MM-dd') : null;
 
   // Filter transactions
   const filteredTransactions = transactions.filter(transaction => {
@@ -102,6 +101,15 @@ const TransactionsList = () => {
     });
   };
 
+  const handleResetFilters = () => {
+    setFilterCategory('all');
+    setFilterType('all');
+    setSearchTerm('');
+    setDate(undefined);
+    setMinAmount('');
+    setMaxAmount('');
+  };
+
   const isAllSelected = filteredTransactions.length > 0 && selectedTransactions.length === filteredTransactions.length;
   const isSomeSelected = selectedTransactions.length > 0 && selectedTransactions.length < filteredTransactions.length;
 
@@ -142,45 +150,36 @@ const TransactionsList = () => {
             <Popover>
               <PopoverTrigger asChild>
                 <Button
+                  id="date"
                   variant={"outline"}
                   className={cn(
-                    "w-[240px] justify-start text-left font-normal",
-                    !startDate && "text-muted-foreground"
+                    "w-[300px] justify-start text-left font-normal",
+                    !date && "text-muted-foreground"
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {startDate ? format(startDate, "PPP") : <span>Start date</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={startDate}
-                  onSelect={setStartDate}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn(
-                    "w-[240px] justify-start text-left font-normal",
-                    !endDate && "text-muted-foreground"
+                  {date?.from ? (
+                    date.to ? (
+                      <>
+                        {format(date.from, "LLL dd, y")} -{" "}
+                        {format(date.to, "LLL dd, y")}
+                      </>
+                    ) : (
+                      format(date.from, "LLL dd, y")
+                    )
+                  ) : (
+                    <span>Pick a date range</span>
                   )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {endDate ? format(endDate, "PPP") : <span>End date</span>}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
+              <PopoverContent className="w-auto p-0" align="start">
                 <Calendar
-                  mode="single"
-                  selected={endDate}
-                  onSelect={setEndDate}
                   initialFocus
+                  mode="range"
+                  defaultMonth={date?.from}
+                  selected={date}
+                  onSelect={setDate}
+                  numberOfMonths={isMobile ? 1 : 2}
                 />
               </PopoverContent>
             </Popover>
@@ -227,6 +226,10 @@ const TransactionsList = () => {
                 <SelectItem value="income">Income</SelectItem>
               </SelectContent>
             </Select>
+            <Button variant="ghost" onClick={handleResetFilters}>
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Reset
+            </Button>
           </div>
         </div>
 
