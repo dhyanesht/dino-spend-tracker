@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -59,59 +58,54 @@ const TrendsAnalysis = () => {
       
       const total = monthTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
       
-      const categoryData: any = { month: monthName, total };
-      
-      if (selectedCategory === 'all') {
-        categories.slice(0, 4).forEach(cat => {
-          const categorySpent = monthTransactions
-            .filter(t => t.category === cat.name)
-            .reduce((sum, t) => sum + Number(t.amount), 0);
-          
-          categoryData[cat.name.toLowerCase().replace(/\s+/g, '')] = categorySpent;
-        });
-      }
-      
-      months.push(categoryData);
+      months.push({ month: monthName, total });
     }
     
     return months;
   };
 
-  const monthlyTrends = getMonthlyTrends();
-
-  const getYearOverYearData = () => {
+  // Generate category comparison data - separate function for clarity
+  const getCategoryComparisonData = () => {
+    if (selectedCategory !== 'all') return [];
+    
+    const months = [];
     const now = new Date();
-    const currentYear = now.getFullYear();
-    const lastYear = currentYear - 1;
+    
+    let monthCount = 6;
+    if (timeRange === '3months') monthCount = 3;
+    if (timeRange === '1year') monthCount = 12;
 
-    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const monthlyData: { [month: string]: { 'This Year'?: number; 'Last Year'?: number } } = 
-      monthNames.reduce((acc, month) => ({ ...acc, [month]: {} }), {});
+    // Get top 4 categories by total spending
+    const categoryTotals = categories.map(cat => ({
+      ...cat,
+      total: expenseTransactions
+        .filter(t => t.category === cat.name)
+        .reduce((sum, t) => sum + Number(t.amount), 0)
+    })).sort((a, b) => b.total - a.total).slice(0, 4);
 
-    transactionsForAnalysis.forEach(t => {
-      const transactionDate = new Date(t.date);
-      const year = transactionDate.getFullYear();
+    for (let i = monthCount - 1; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthKey = date.toISOString().slice(0, 7);
+      const monthName = date.toLocaleDateString('en-US', { month: 'short' });
       
-      if (year === currentYear || year === lastYear) {
-        const month = transactionDate.getMonth();
-        const monthName = monthNames[month];
-        const key = year === currentYear ? 'This Year' : 'Last Year';
+      const monthData: any = { month: monthName };
+      
+      categoryTotals.forEach(cat => {
+        const categorySpent = expenseTransactions
+          .filter(t => t.date.startsWith(monthKey) && t.category === cat.name)
+          .reduce((sum, t) => sum + Number(t.amount), 0);
         
-        if (!monthlyData[monthName][key]) {
-          monthlyData[monthName][key] = 0;
-        }
-        monthlyData[monthName][key]! += Number(t.amount);
-      }
-    });
-
-    return monthNames.map(month => ({
-      month,
-      'This Year': monthlyData[month]['This Year'] || 0,
-      'Last Year': monthlyData[month]['Last Year'] || 0,
-    }));
+        monthData[cat.name] = categorySpent;
+      });
+      
+      months.push(monthData);
+    }
+    
+    return { data: months, topCategories: categoryTotals };
   };
 
-  const yearOverYearData = getYearOverYearData();
+  const monthlyTrends = getMonthlyTrends();
+  const categoryComparison = getCategoryComparisonData();
 
   // Calculate insights
   const getCurrentMonthSpending = () => {
@@ -206,13 +200,14 @@ const TrendsAnalysis = () => {
       {selectedCategory === 'all' && (
         <Card className="p-6">
           <h3 className="text-lg font-semibold mb-4 dark:text-white">Category Trends Comparison</h3>
-          {categories.length > 0 && monthlyTrends.length > 0 ? (
+          <p className="text-sm text-muted-foreground mb-4">Top 4 categories by spending volume</p>
+          {categoryComparison.topCategories && categoryComparison.topCategories.length > 0 && categoryComparison.data.length > 0 ? (
             <EnhancedLineChart
-              data={monthlyTrends}
+              data={categoryComparison.data}
               xAxisKey="month"
-              lines={categories.slice(0, 4).map((cat, index) => ({
-                dataKey: cat.name.toLowerCase().replace(/\s+/g, ''),
-                color: chartColors[index],
+              lines={categoryComparison.topCategories.map((cat, index) => ({
+                dataKey: cat.name,
+                color: cat.color || chartColors[index],
                 name: cat.name
               }))}
             />
