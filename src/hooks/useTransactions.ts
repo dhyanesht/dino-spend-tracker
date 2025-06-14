@@ -114,3 +114,28 @@ export const useUpdateTransaction = () => {
     },
   });
 };
+
+export const useDeleteMultipleTransactions = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (transactionIds: string[]) => {
+      console.log('Deleting multiple transactions:', transactionIds.length, 'records');
+      const { data, error } = await supabase
+        .from('transactions')
+        .delete()
+        .in('id', transactionIds);
+      
+      if (error) {
+        console.error('Error deleting multiple transactions:', error);
+        throw error;
+      }
+      console.log('Multiple transactions deleted successfully');
+      return data;
+    },
+    onSuccess: () => {
+      console.log('Invalidating transactions query cache after bulk delete');
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+    },
+  });
+};

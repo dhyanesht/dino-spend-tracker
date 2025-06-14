@@ -5,7 +5,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { useTransactions } from '@/hooks/useTransactions';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { useTransactions, useDeleteMultipleTransactions } from '@/hooks/useTransactions';
 import { useSubcategories } from '@/hooks/useCategories';
 import EditTransactionDialog from './EditTransactionDialog';
 
@@ -13,9 +17,11 @@ const TransactionsList = () => {
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterType, setFilterType] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
   
   const { data: transactions = [], isLoading: transactionsLoading } = useTransactions();
   const { data: subcategories = [], isLoading: subcategoriesLoading } = useSubcategories();
+  const deleteTransactions = useDeleteMultipleTransactions();
 
   if (transactionsLoading || subcategoriesLoading) {
     return (
@@ -45,16 +51,63 @@ const TransactionsList = () => {
     return subcategory?.parent_category || null;
   };
 
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedTransactions(filteredTransactions.map(t => t.id));
+    } else {
+      setSelectedTransactions([]);
+    }
+  };
+
+  const handleSelectOne = (transactionId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedTransactions(prev => [...prev, transactionId]);
+    } else {
+      setSelectedTransactions(prev => prev.filter(id => id !== transactionId));
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    await deleteTransactions.mutateAsync(selectedTransactions, {
+      onSuccess: () => {
+        toast.success(`${selectedTransactions.length} transaction(s) deleted.`);
+        setSelectedTransactions([]);
+      },
+      onError: (error) => {
+        console.error('Failed to delete transactions:', error);
+        toast.error('Failed to delete transactions.');
+      }
+    });
+  };
+
+  const isAllSelected = filteredTransactions.length > 0 && selectedTransactions.length === filteredTransactions.length;
+  const isSomeSelected = selectedTransactions.length > 0 && selectedTransactions.length < filteredTransactions.length;
+
   return (
     <div className="space-y-6">
       <Card className="p-6">
         <div className="flex flex-wrap gap-4 items-center justify-between mb-6">
-          <div>
-            <h2 className="text-xl font-semibold">All Transactions</h2>
-            <p className="text-slate-600">
-              Showing {filteredTransactions.length} of {transactions.length} transactions
-            </p>
-          </div>
+          {selectedTransactions.length > 0 ? (
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-semibold">{selectedTransactions.length} selected</h2>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleDeleteSelected}
+                disabled={deleteTransactions.isPending}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                <span>Delete</span>
+              </Button>
+            </div>
+          ) : (
+            <div>
+              <h2 className="text-xl font-semibold">All Transactions</h2>
+              <p className="text-slate-600">
+                Showing {filteredTransactions.length} of {transactions.length} transactions
+              </p>
+            </div>
+          )}
           
           <div className="flex gap-3 flex-wrap">
             <Input
@@ -98,6 +151,13 @@ const TransactionsList = () => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12 px-2">
+                  <Checkbox
+                    checked={isAllSelected ? true : isSomeSelected ? 'indeterminate' : false}
+                    onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                    aria-label="Select all"
+                  />
+                </TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead>Category</TableHead>
@@ -110,7 +170,17 @@ const TransactionsList = () => {
             <TableBody>
               {filteredTransactions.length > 0 ? (
                 filteredTransactions.map((transaction) => (
-                  <TableRow key={transaction.id}>
+                  <TableRow 
+                    key={transaction.id}
+                    data-state={selectedTransactions.includes(transaction.id) ? "selected" : undefined}
+                  >
+                    <TableCell className="px-2">
+                      <Checkbox
+                        checked={selectedTransactions.includes(transaction.id)}
+                        onCheckedChange={(checked) => handleSelectOne(transaction.id, !!checked)}
+                        aria-label={`Select transaction ${transaction.description}`}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">
                       {new Date(transaction.date).toLocaleDateString()}
                     </TableCell>
@@ -146,7 +216,7 @@ const TransactionsList = () => {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-slate-500">
+                  <TableCell colSpan={8} className="text-center py-8 text-slate-500">
                     No transactions found matching your filters
                   </TableCell>
                 </TableRow>
