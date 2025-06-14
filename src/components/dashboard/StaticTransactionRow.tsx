@@ -5,16 +5,31 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import EditTransactionDialog from './EditTransactionDialog';
 import { Transaction } from '@/hooks/useTransactions';
+import { Button } from '@/components/ui/button';
+import { Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface StaticTransactionRowProps {
   transaction: Transaction;
   isSelected: boolean;
   onSelectOne: (id: string, checked: boolean) => void;
+  onDelete: (ids: string[]) => Promise<any>;
   getCategoryColor: (category: string) => string;
   getParentCategory: (category: string) => string | null;
 }
 
-const StaticTransactionRow = ({ transaction, isSelected, onSelectOne, getCategoryColor, getParentCategory }: StaticTransactionRowProps) => {
+const StaticTransactionRow = ({ transaction, isSelected, onSelectOne, onDelete, getCategoryColor, getParentCategory }: StaticTransactionRowProps) => {
+  const handleDelete = () => {
+    onDelete([transaction.id])
+      .then(() => {
+        toast.success('Transaction deleted.');
+      })
+      .catch((error) => {
+        console.error('Failed to delete transaction:', error);
+        toast.error('Failed to delete transaction.');
+      });
+  };
+  
   return (
     <TableRow 
       data-state={isSelected ? "selected" : undefined}
@@ -55,7 +70,12 @@ const StaticTransactionRow = ({ transaction, isSelected, onSelectOne, getCategor
         </span>
       </TableCell>
       <TableCell>
-        <EditTransactionDialog transaction={transaction} />
+        <div className="flex items-center justify-end">
+          <EditTransactionDialog transaction={transaction} />
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleDelete}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
       </TableCell>
     </TableRow>
   );
