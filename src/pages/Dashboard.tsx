@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Upload, TrendingUp, PieChart, Calendar, List, DollarSign } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { BottomTabBar } from '@/components/ui/bottom-tab-bar';
+import { useMobile } from '@/hooks/useMobile';
 import ExpenseOverview from '@/components/dashboard/ExpenseOverview';
 import TrendsAnalysis from '@/components/dashboard/TrendsAnalysis';
 import CategoryManager from '@/components/dashboard/CategoryManager';
@@ -15,6 +17,7 @@ import BudgetManager from '@/components/dashboard/BudgetManager';
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
+  const isMobile = useMobile();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
@@ -28,17 +31,22 @@ const Dashboard = () => {
             </div>
             <div className="flex items-center gap-3">
               <ThemeToggle />
-              <SmartTransactionDialog />
-              <CSVImporter />
+              {!isMobile && (
+                <>
+                  <SmartTransactionDialog />
+                  <CSVImporter />
+                </>
+              )}
             </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className={`max-w-7xl mx-auto px-6 py-8 ${isMobile ? 'pb-32' : ''}`}>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-6 mb-8">
+          {/* Desktop Tab List - Hidden on Mobile */}
+          <TabsList className={`grid w-full grid-cols-6 mb-8 ${isMobile ? 'hidden' : ''}`}>
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <PieChart className="w-4 h-4" />
               Overview
@@ -64,6 +72,14 @@ const Dashboard = () => {
               Import Data
             </TabsTrigger>
           </TabsList>
+
+          {/* Mobile Action Buttons */}
+          {isMobile && (
+            <div className="flex gap-2 mb-6 overflow-x-auto">
+              <SmartTransactionDialog />
+              <CSVImporter />
+            </div>
+          )}
 
           <TabsContent value="overview" className="space-y-6">
             <ExpenseOverview />
@@ -100,6 +116,11 @@ const Dashboard = () => {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Mobile Bottom Tab Bar */}
+      {isMobile && (
+        <BottomTabBar activeTab={activeTab} onTabChange={setActiveTab} />
+      )}
     </div>
   );
 };
