@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Calendar as CalendarIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTransactions, useDeleteMultipleTransactions } from '@/hooks/useTransactions';
 import { useSubcategories } from '@/hooks/useCategories';
@@ -15,12 +15,20 @@ import { useMobile } from '@/hooks/useMobile';
 import StaticTransactionRow from './StaticTransactionRow';
 import SwipeableTransactionRow from './SwipeableTransactionRow';
 import EditTransactionDialog from './EditTransactionDialog';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 const TransactionsList = () => {
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterType, setFilterType] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
+  const [startDate, setStartDate] = useState<Date | undefined>();
+  const [endDate, setEndDate] = useState<Date | undefined>();
+  const [minAmount, setMinAmount] = useState('');
+  const [maxAmount, setMaxAmount] = useState('');
   
   const { data: transactions = [], isLoading: transactionsLoading } = useTransactions();
   const { data: subcategories = [], isLoading: subcategoriesLoading } = useSubcategories();
@@ -35,6 +43,9 @@ const TransactionsList = () => {
     );
   }
 
+  const formattedStartDate = startDate ? format(startDate, 'yyyy-MM-dd') : null;
+  const formattedEndDate = endDate ? format(endDate, 'yyyy-MM-dd') : null;
+
   // Filter transactions
   const filteredTransactions = transactions.filter(transaction => {
     const matchesCategory = filterCategory === 'all' || transaction.category === filterCategory;
@@ -42,7 +53,14 @@ const TransactionsList = () => {
     const matchesSearch = transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          transaction.category.toLowerCase().includes(searchTerm.toLowerCase());
     
-    return matchesCategory && matchesType && matchesSearch;
+    const matchesStartDate = !formattedStartDate || transaction.date >= formattedStartDate;
+    const matchesEndDate = !formattedEndDate || transaction.date <= formattedEndDate;
+
+    const transactionAmount = Number(transaction.amount);
+    const matchesMinAmount = minAmount === '' || isNaN(parseFloat(minAmount)) || transactionAmount >= parseFloat(minAmount);
+    const matchesMaxAmount = maxAmount === '' || isNaN(parseFloat(maxAmount)) || transactionAmount <= parseFloat(maxAmount);
+
+    return matchesCategory && matchesType && matchesSearch && matchesStartDate && matchesEndDate && matchesMinAmount && matchesMaxAmount;
   });
 
   const getCategoryColor = (categoryName: string) => {
@@ -115,10 +133,71 @@ const TransactionsList = () => {
           
           <div className="flex gap-3 flex-wrap">
             <Input
-              placeholder="Search transactions..."
+              placeholder="Search description..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-48"
+            />
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={"outline"}
+                  className={cn(
+                    "w-[240px] justify-start text-left font-normal",
+                    !startDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {startDate ? format(startDate, "PPP") : <span>Start date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={startDate}
+                  onSelect={setStartDate}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={"outline"}
+                  className={cn(
+                    "w-[240px] justify-start text-left font-normal",
+                    !endDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {endDate ? format(endDate, "PPP") : <span>End date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={endDate}
+                  onSelect={setEndDate}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+            
+            <Input
+              type="number"
+              placeholder="Min amount"
+              value={minAmount}
+              onChange={(e) => setMinAmount(e.target.value)}
+              className="w-32"
+            />
+            <Input
+              type="number"
+              placeholder="Max amount"
+              value={maxAmount}
+              onChange={(e) => setMaxAmount(e.target.value)}
+              className="w-32"
             />
             
             <Select value={filterCategory} onValueChange={setFilterCategory}>
