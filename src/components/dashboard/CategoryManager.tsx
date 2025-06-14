@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Plus, ArrowLeft } from 'lucide-react';
@@ -168,7 +169,7 @@ const CategoryManager = () => {
             </Button>
           </div>
 
-          {/* Parent categories grid with color edit */}
+          {/* Parent categories grid with color next to name, editable as admin */}
           {!selectedMainCategory && (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {parentCategories.map((cat) => (
@@ -176,33 +177,30 @@ const CategoryManager = () => {
                   key={cat.id}
                   className="flex items-center justify-between rounded-lg bg-white dark:bg-slate-800 border p-4"
                 >
-                  <div>
-                    <div className="font-semibold">{cat.name}</div>
-                    {/* Show additional info here if desired */}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {/* If admin, show color picker inline in this card; otherwise show color dot */}
+                  <div className="flex items-center gap-3">
+                    {/* Color dot next to name; editable if admin */}
                     {isAdmin ? (
                       editingColorId === cat.id ? (
-                        <div className="flex items-center gap-2">
+                        <div className="relative flex items-center group">
                           <input
                             type="color"
                             value={pendingColor}
                             onChange={handleColorChange}
-                            className="w-8 h-8 border-none p-0 bg-transparent cursor-pointer"
+                            className="w-7 h-7 border-none p-0 bg-transparent cursor-pointer rounded-full"
                             aria-label="Pick color"
                             disabled={colorSavingId === cat.id}
+                            style={{ background: "none", appearance: "none", outline: "none" }}
                           />
                           <button
                             onClick={() => handleSaveColor(cat)}
-                            className={`text-xs px-2 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 transition ${colorSavingId === cat.id ? 'opacity-50 cursor-wait' : ''}`}
+                            className={`ml-2 text-xs px-2 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 transition ${colorSavingId === cat.id ? 'opacity-50 cursor-wait' : ''}`}
                             disabled={colorSavingId === cat.id}
                           >
                             {colorSavingId === cat.id ? "Saving..." : "Save"}
                           </button>
                           <button
                             onClick={handleCancelEdit}
-                            className="text-xs px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50 dark:bg-slate-700 dark:border-slate-600 ml-1"
+                            className="ml-1 text-xs px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50 dark:bg-slate-700 dark:border-slate-600"
                             disabled={colorSavingId === cat.id}
                           >
                             Cancel
@@ -211,24 +209,27 @@ const CategoryManager = () => {
                       ) : (
                         <button
                           onClick={() => handleStartColorEdit(cat)}
-                          className="relative border rounded-full p-0.5 hover:scale-105 duration-150 transition"
+                          className="relative border-none outline-none bg-transparent flex items-center p-0 hover:scale-105 duration-150 transition cursor-pointer"
                           aria-label={`Edit color for category ${cat.name}`}
                           title="Edit category color"
+                          style={{ background: 'none' }}
                         >
                           <span
-                            className="block w-7 h-7 rounded-full border border-gray-300"
+                            className="block w-5 h-5 rounded-full"
                             style={{ background: cat.color || "#3B82F6" }}
                           />
                         </button>
                       )
                     ) : (
-                      <div
-                        className="w-8 h-8 rounded border"
+                      <span
+                        className="block w-5 h-5 rounded-full border border-gray-300"
                         style={{ background: cat.color || "#3B82F6" }}
                         aria-label="Category color"
                       />
                     )}
+                    <span className="text-lg font-semibold">{cat.name}</span>
                   </div>
+                  {/* You may add more info/controls here */}
                 </div>
               ))}
             </div>
@@ -264,3 +265,4 @@ const CategoryManager = () => {
 };
 
 export default CategoryManager;
+
