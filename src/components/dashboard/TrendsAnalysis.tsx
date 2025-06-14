@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -70,6 +69,40 @@ const TrendsAnalysis = () => {
   };
 
   const monthlyTrends = getMonthlyTrends();
+
+  const getYearOverYearData = () => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const lastYear = currentYear - 1;
+
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const monthlyData: { [month: string]: { 'This Year'?: number; 'Last Year'?: number } } = 
+      monthNames.reduce((acc, month) => ({ ...acc, [month]: {} }), {});
+
+    expenseTransactions.forEach(t => {
+      const transactionDate = new Date(t.date);
+      const year = transactionDate.getFullYear();
+      
+      if (year === currentYear || year === lastYear) {
+        const month = transactionDate.getMonth();
+        const monthName = monthNames[month];
+        const key = year === currentYear ? 'This Year' : 'Last Year';
+        
+        if (!monthlyData[monthName][key]) {
+          monthlyData[monthName][key] = 0;
+        }
+        monthlyData[monthName][key]! += Number(t.amount);
+      }
+    });
+
+    return monthNames.map(month => ({
+      month,
+      'This Year': monthlyData[month]['This Year'] || 0,
+      'Last Year': monthlyData[month]['Last Year'] || 0,
+    }));
+  };
+
+  const yearOverYearData = getYearOverYearData();
 
   // Calculate insights
   const getCurrentMonthSpending = () => {
@@ -168,6 +201,23 @@ const TrendsAnalysis = () => {
               color: chartColors[index],
               name: cat.name
             }))}
+          />
+        ) : (
+          <NoDataEmpty />
+        )}
+      </Card>
+
+      {/* Year-over-Year Comparison */}
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold mb-4 dark:text-white">Year-over-Year Spending</h3>
+        {yearOverYearData.some(d => d['This Year'] > 0 || d['Last Year'] > 0) ? (
+          <EnhancedLineChart
+            data={yearOverYearData}
+            xAxisKey="month"
+            lines={[
+              { dataKey: 'This Year', color: chartColors[0], name: `This Year (${new Date().getFullYear()})` },
+              { dataKey: 'Last Year', color: chartColors[1], name: `Last Year (${new Date().getFullYear() - 1})` },
+            ]}
           />
         ) : (
           <NoDataEmpty />
