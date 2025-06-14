@@ -82,7 +82,7 @@ const StoreManager = () => {
       console.error('Error deleting store:', error);
       toast.error('Failed to delete store');
     } finally {
-      setDeleteTarget(null);
+      setDeleteTarget(null); // (still needed here)
     }
   };
 
@@ -196,7 +196,7 @@ const StoreManager = () => {
                               if (open) {
                                 setDeleteTarget({ id: store.id, name: store.name });
                               } else {
-                                setDeleteTarget(null);
+                                // Do NOT clear here; let the action/cancel do it
                               }
                             }}
                           >
@@ -222,10 +222,16 @@ const StoreManager = () => {
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
-                                <AlertDialogCancel disabled={deleteStore.isPending}>
+                                <AlertDialogCancel
+                                  disabled={deleteStore.isPending}
+                                  onClick={() => setDeleteTarget(null)}
+                                >
                                   Cancel
                                 </AlertDialogCancel>
-                                <AlertDialogAction disabled={deleteStore.isPending} onClick={handleDelete}>
+                                <AlertDialogAction
+                                  disabled={deleteStore.isPending}
+                                  onClick={handleDelete}
+                                >
                                   {deleteStore.isPending ? "Deleting..." : "Delete"}
                                 </AlertDialogAction>
                               </AlertDialogFooter>
