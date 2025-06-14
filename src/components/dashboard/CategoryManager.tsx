@@ -2,14 +2,13 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Plus, ArrowLeft } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useCategories, useParentCategories, useSubcategories, useAddCategory, useDeleteCategory } from '@/hooks/useCategories';
+import { useCategories, useParentCategories, useSubcategories, useAddCategory, useDeleteCategory, useUpdateCategory } from '@/hooks/useCategories';
 import { useTransactions } from '@/hooks/useTransactions';
 import CategoryGrid from './CategoryGrid';
 import CategoryDialog from './CategoryDialog';
 import StoreManager from './StoreManager';
 import { toast } from 'sonner';
 import { useAdmin } from '@/contexts/AdminContext';
-import ParentCategoryColorPicker from './ParentCategoryColorPicker';
 
 const CategoryManager = () => {
   const { isAdmin } = useAdmin();
@@ -23,12 +22,18 @@ const CategoryManager = () => {
     parent_category: null as string | null,
   });
 
+  // For handling color picker state on each card
+  const [editingColorId, setEditingColorId] = useState<string | null>(null);
+  const [pendingColor, setPendingColor] = useState<string>('');
+  const [colorSavingId, setColorSavingId] = useState<string | null>(null);
+
   const { data: allCategories = [], isLoading: categoriesLoading } = useCategories();
   const { data: parentCategories = [], isLoading: parentLoading } = useParentCategories();
   const { data: subcategories = [], isLoading: subcategoriesLoading } = useSubcategories();
   const { data: transactions = [] } = useTransactions();
   const addCategory = useAddCategory();
   const deleteCategory = useDeleteCategory();
+  const updateCategory = useUpdateCategory();
 
   const getSpentAmount = (categoryName: string) => {
     return transactions
@@ -82,6 +87,32 @@ const CategoryManager = () => {
       return subcategories.filter(cat => cat.parent_category === selectedMainCategory);
     }
     return parentCategories;
+  };
+
+  const handleStartColorEdit = (category: {id: string, color: string}) => {
+    setEditingColorId(category.id);
+    setPendingColor(category.color || "#3B82F6");
+  };
+
+  const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPendingColor(e.target.value);
+  };
+
+  const handleSaveColor = async (category: {id: string, name: string}) => {
+    setColorSavingId(category.id);
+    try {
+      await updateCategory.mutateAsync({ id: category.id, color: pendingColor });
+      toast.success(`Color updated for "${category.name}".`);
+      setEditingColorId(null);
+    } catch {
+      toast.error("Failed to update category color");
+    } finally {
+      setColorSavingId(null);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingColorId(null);
   };
 
   if (categoriesLoading || parentLoading || subcategoriesLoading) {
@@ -147,17 +178,57 @@ const CategoryManager = () => {
                 >
                   <div>
                     <div className="font-semibold">{cat.name}</div>
+                    {/* Show additional info here if desired */}
                   </div>
-                  {isAdmin && (
-                    <ParentCategoryColorPicker category={cat} />
-                  )}
-                  {!isAdmin && (
-                    <div
-                      className="w-8 h-8 rounded border"
-                      style={{ background: cat.color || "#3B82F6" }}
-                      aria-label="Category color"
-                    />
-                  )}
+                  <div className="flex items-center gap-2">
+                    {/* If admin, show color picker inline in this card; otherwise show color dot */}
+                    {isAdmin ? (
+                      editingColorId === cat.id ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={pendingColor}
+                            onChange={handleColorChange}
+                            className="w-8 h-8 border-none p-0 bg-transparent cursor-pointer"
+                            aria-label="Pick color"
+                            disabled={colorSavingId === cat.id}
+                          />
+                          <button
+                            onClick={() => handleSaveColor(cat)}
+                            className={`text-xs px-2 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 transition ${colorSavingId === cat.id ? 'opacity-50 cursor-wait' : ''}`}
+                            disabled={colorSavingId === cat.id}
+                          >
+                            {colorSavingId === cat.id ? "Saving..." : "Save"}
+                          </button>
+                          <button
+                            onClick={handleCancelEdit}
+                            className="text-xs px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50 dark:bg-slate-700 dark:border-slate-600 ml-1"
+                            disabled={colorSavingId === cat.id}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handleStartColorEdit(cat)}
+                          className="relative border rounded-full p-0.5 hover:scale-105 duration-150 transition"
+                          aria-label={`Edit color for category ${cat.name}`}
+                          title="Edit category color"
+                        >
+                          <span
+                            className="block w-7 h-7 rounded-full border border-gray-300"
+                            style={{ background: cat.color || "#3B82F6" }}
+                          />
+                        </button>
+                      )
+                    ) : (
+                      <div
+                        className="w-8 h-8 rounded border"
+                        style={{ background: cat.color || "#3B82F6" }}
+                        aria-label="Category color"
+                      />
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
