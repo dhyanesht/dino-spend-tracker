@@ -128,7 +128,8 @@ const DashboardInner = () => {
               {!isMobile && (
                 <>
                   <SmartTransactionDialog />
-                  <CSVImporter />
+                  {/* Only show CSVImporter if admin */}
+                  {isAdmin && <CSVImporter />}
                 </>
               )}
             </div>
@@ -172,7 +173,8 @@ const DashboardInner = () => {
           {isMobile && (
             <div className="flex gap-2 mb-6 overflow-x-auto">
               <SmartTransactionDialog />
-              <CSVImporter />
+              {/* Only show CSVImporter if admin */}
+              {isAdmin && <CSVImporter />}
             </div>
           )}
 
