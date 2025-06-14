@@ -41,22 +41,36 @@ const CategoryCard = ({
     ? Math.min((spent / Number(category.monthly_budget)) * 100, 100) 
     : 0;
 
-  const handleColorSave = () => {
+  const handleColorSave = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (onUpdateColor) {
       onUpdateColor(pendingColor);
       setIsEditingColor(false);
     }
   };
 
-  const handleColorCancel = () => {
+  const handleColorCancel = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setPendingColor(category.color || '#3B82F6');
     setIsEditingColor(false);
   };
 
+  const handleColorEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isAdmin) {
+      setIsEditingColor(true);
+    }
+  };
+
+  const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    setPendingColor(e.target.value);
+  };
+
   return (
     <Card 
-      className={`p-4 hover:shadow-lg transition-shadow ${hasSubcategories ? 'cursor-pointer' : ''}`}
-      onClick={hasSubcategories ? onClick : undefined}
+      className={`p-4 hover:shadow-lg transition-shadow ${hasSubcategories && !isEditingColor ? 'cursor-pointer' : ''}`}
+      onClick={hasSubcategories && !isEditingColor ? onClick : undefined}
     >
       <div className="flex justify-between items-start mb-3">
         <div className="flex items-center gap-3">
@@ -67,29 +81,23 @@ const CategoryCard = ({
           {/* Color dot with edit functionality */}
           <div className="flex items-center gap-2">
             {isAdmin && isEditingColor ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                 <input
                   type="color"
                   value={pendingColor}
-                  onChange={(e) => setPendingColor(e.target.value)}
+                  onChange={handleColorChange}
                   className="w-6 h-6 border-none p-0 bg-transparent cursor-pointer rounded-full"
                   disabled={isUpdating}
                 />
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleColorSave();
-                  }}
+                  onClick={handleColorSave}
                   className={`text-xs px-2 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 transition ${isUpdating ? 'opacity-50 cursor-wait' : ''}`}
                   disabled={isUpdating}
                 >
                   {isUpdating ? "Saving..." : "Save"}
                 </button>
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleColorCancel();
-                  }}
+                  onClick={handleColorCancel}
                   className="text-xs px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50"
                   disabled={isUpdating}
                 >
@@ -98,12 +106,7 @@ const CategoryCard = ({
               </div>
             ) : (
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (isAdmin) {
-                    setIsEditingColor(true);
-                  }
-                }}
+                onClick={handleColorEdit}
                 className={`w-5 h-5 rounded-full border border-gray-300 ${isAdmin ? 'cursor-pointer hover:scale-105 transition' : 'cursor-default'}`}
                 style={{ backgroundColor: category.color || '#3B82F6' }}
                 disabled={!isAdmin}
