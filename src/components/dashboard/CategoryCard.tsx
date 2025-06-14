@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,10 +33,10 @@ const CategoryCard = ({
 
   return (
     <Card 
-      className={`p-6 hover:shadow-lg transition-shadow ${hasSubcategories ? 'cursor-pointer' : ''}`}
+      className={`p-4 hover:shadow-lg transition-shadow ${hasSubcategories ? 'cursor-pointer' : ''}`}
       onClick={hasSubcategories ? onClick : undefined}
     >
-      <div className="flex justify-between items-start mb-4">
+      <div className="flex justify-between items-start mb-3">
         <div className="flex items-center gap-2">
           {hasSubcategories && (
             <FolderOpen className="w-5 h-5 text-blue-500" />
@@ -58,7 +57,7 @@ const CategoryCard = ({
         </div>
         
         {!hasSubcategories && (
-          <div className="flex gap-2">
+          <div className="flex gap-1">
             {onEdit && (
               <Button variant="ghost" size="sm" onClick={onEdit}>
                 <Edit className="w-4 h-4" />
@@ -79,7 +78,7 @@ const CategoryCard = ({
         )}
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         <div className="flex justify-between items-center">
           <span className="text-sm text-slate-600">Spent this month</span>
           <span className="font-semibold">${spent.toFixed(2)}</span>
@@ -92,7 +91,7 @@ const CategoryCard = ({
 
         {/* Progress Bar */}
         {Number(category.monthly_budget) > 0 && (
-          <div className="space-y-2">
+          <div className="space-y-1">
             <div className="flex justify-between text-sm">
               <span>Progress</span>
               <span>{spentPercentage.toFixed(0)}%</span>
@@ -104,7 +103,7 @@ const CategoryCard = ({
               ></div>
             </div>
             {spent > Number(category.monthly_budget) && (
-              <p className="text-sm text-red-600">
+              <p className="text-xs text-red-600">
                 ${(spent - Number(category.monthly_budget)).toFixed(2)} over budget
               </p>
             )}
@@ -112,7 +111,7 @@ const CategoryCard = ({
         )}
         
         {hasSubcategories && (
-          <div className="pt-2 border-t">
+          <div className="pt-2 border-t mt-2">
             <p className="text-sm text-blue-600 flex items-center gap-1">
               <Folder className="w-4 h-4" />
               Click to view subcategories

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -82,7 +81,7 @@ const Dashboard = () => {
           )}
 
           <TabsContent value="overview" className="space-y-6">
-            <ExpenseOverview />
+            <ExpenseOverview setActiveTab={setActiveTab} />
           </TabsContent>
 
           <TabsContent value="transactions" className="space-y-6">

@@ -1,13 +1,18 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { ArrowRight } from 'lucide-react';
 import { useTransactions } from '@/hooks/useTransactions';
-import { useCategories, useParentCategories, useSubcategories } from '@/hooks/useCategories';
+import { useParentCategories, useSubcategories } from '@/hooks/useCategories';
 import { DashboardSkeleton } from '@/components/ui/enhanced-skeleton';
 import { NoTransactionsEmpty, NoDataEmpty } from '@/components/ui/empty-state';
 import { EnhancedPieChart, EnhancedBarChart } from '@/components/ui/enhanced-chart';
 
-const ExpenseOverview = () => {
+interface ExpenseOverviewProps {
+  setActiveTab: (tab: string) => void;
+}
+
+const ExpenseOverview = ({ setActiveTab }: ExpenseOverviewProps) => {
   const { data: transactions = [], isLoading: transactionsLoading } = useTransactions();
   const { data: parentCategories = [], isLoading: parentCategoriesLoading } = useParentCategories();
   const { data: subcategories = [], isLoading: subcategoriesLoading } = useSubcategories();
@@ -32,11 +37,7 @@ const ExpenseOverview = () => {
   if (displayTransactions.length === 0) {
     return (
       <NoTransactionsEmpty 
-        onImport={() => {
-          // Navigate to import tab
-          const importTab = document.querySelector('[value="import"]') as HTMLElement;
-          importTab?.click();
-        }}
+        onImport={() => setActiveTab('import')}
       />
     );
   }
@@ -122,20 +123,47 @@ const ExpenseOverview = () => {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Summary Cards */}
       <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <Card className="p-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+        <Card className="p-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white relative">
           <h3 className="text-sm font-medium opacity-90">Total Spending</h3>
           <p className="text-2xl font-bold">${totalSpending.toFixed(2)}</p>
-          <p className="text-sm opacity-90 mt-1">{timeRangeText}</p>
+          <p className="text-xs opacity-90 mt-1">{timeRangeText}</p>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="absolute top-2 right-2 text-white hover:bg-white/20"
+            onClick={() => setActiveTab('trends')}
+            aria-label="View spending trends"
+          >
+            <ArrowRight className="w-4 h-4" />
+          </Button>
         </Card>
-        <Card className="p-6 bg-gradient-to-r from-green-500 to-green-600 text-white">
+        <Card className="p-4 bg-gradient-to-r from-green-500 to-green-600 text-white relative">
           <h3 className="text-sm font-medium opacity-90">Total Transactions</h3>
           <p className="text-2xl font-bold">{totalTransactions}</p>
-          <p className="text-sm opacity-90 mt-1">Expense transactions</p>
+          <p className="text-xs opacity-90 mt-1">Expense transactions</p>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="absolute top-2 right-2 text-white hover:bg-white/20"
+            onClick={() => setActiveTab('transactions')}
+            aria-label="View all transactions"
+          >
+            <ArrowRight className="w-4 h-4" />
+          </Button>
         </Card>
-        <Card className="p-6 bg-gradient-to-r from-purple-500 to-purple-600 text-white">
+        <Card className="p-4 bg-gradient-to-r from-purple-500 to-purple-600 text-white relative">
           <h3 className="text-sm font-medium opacity-90">Monthly Budget</h3>
           <p className="text-2xl font-bold">${totalBudget.toFixed(2)}</p>
-          <p className="text-sm opacity-90 mt-1">Total budget</p>
+          <p className="text-xs opacity-90 mt-1">Total budget</p>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="absolute top-2 right-2 text-white hover:bg-white/20"
+            onClick={() => setActiveTab('budget')}
+            aria-label="Manage budgets"
+          >
+            <ArrowRight className="w-4 h-4" />
+          </Button>
         </Card>
       </div>
 
