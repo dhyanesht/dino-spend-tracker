@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -38,16 +38,31 @@ const StoreManager = () => {
     extracted: string;
     match: any;
   } | null>(null);
+  const [editColor, setEditColor] = useState<string>('#3B82F6');
 
   const { data: stores = [], isLoading } = useStores();
   const { data: subcategories = [] } = useSubcategories();
   const updateStore = useUpdateStore();
   const deleteStore = useDeleteStore();
 
+  // Import the update category hook
+  const { useUpdateCategory } = require('@/hooks/useCategories');
+  const updateCategory = useUpdateCategory();
+
+  // Update color picker value when editing category changes
+  React.useEffect(() => {
+    if (editingId && editCategory) {
+      const cat = subcategories.find(c => c.name === editCategory);
+      setEditColor(cat?.color || '#3B82F6');
+    }
+  }, [editingId, editCategory, subcategories]);
+
   const handleEdit = (storeId: string, currentCategory: string, currentName: string) => {
     setEditingId(storeId);
     setEditCategory(currentCategory);
     setEditName(currentName);
+    const cat = subcategories.find(c => c.name === currentCategory);
+    setEditColor(cat?.color || '#3B82F6');
   };
 
   const handleSave = async (storeId: string) => {
@@ -57,6 +72,11 @@ const StoreManager = () => {
         name: editName,
         category_name: editCategory,
       });
+      // Update subcategory color
+      const cat = subcategories.find(c => c.name === editCategory);
+      if (cat && cat.color !== editColor) {
+        await updateCategory.mutateAsync({ id: cat.id, color: editColor });
+      }
       toast.success('Store updated successfully!');
       setEditingId(null);
       setEditCategory('');
@@ -118,6 +138,7 @@ const StoreManager = () => {
             <TableRow>
               <TableHead>Store Name</TableHead>
               <TableHead>Category</TableHead>
+              <TableHead>Colour</TableHead>
               <TableHead>Last Updated</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
@@ -140,7 +161,7 @@ const StoreManager = () => {
                   </TableCell>
                   <TableCell>
                     {editingId === store.id ? (
-                      <Select value={editCategory} onValueChange={setEditCategory}>
+                      <Select value={editCategory} onValueChange={value => setEditCategory(value)}>
                         <SelectTrigger className="w-48">
                           <SelectValue />
                         </SelectTrigger>
@@ -160,6 +181,31 @@ const StoreManager = () => {
                     )}
                   </TableCell>
                   <TableCell>
+                    {editingId === store.id ? (
+                      <input
+                        type="color"
+                        value={editColor}
+                        onChange={e => setEditColor(e.target.value)}
+                        className="w-8 h-8 p-0 border-0 bg-transparent hover:cursor-pointer"
+                        aria-label="Select category colour"
+                      />
+                    ) : (
+                      (() => {
+                        const cat = subcategories.find(c => c.name === store.category_name);
+                        return (
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="inline-block w-5 h-5 rounded"
+                              style={{ backgroundColor: cat?.color || '#3B82F6', border: '1px solid #CCC' }}
+                              aria-label={`Category colour: ${cat?.color || '#3B82F6'}`}
+                            />
+                            <span className="text-slate-500 text-xs">{cat?.color || '#3B82F6'}</span>
+                          </div>
+                        );
+                      })()
+                    )}
+                  </TableCell>
+                  <TableCell>
                     {new Date(store.updated_at).toLocaleDateString()}
                   </TableCell>
                   <TableCell>
@@ -169,7 +215,7 @@ const StoreManager = () => {
                           <Button
                             size="sm"
                             onClick={() => handleSave(store.id)}
-                            disabled={updateStore.isPending}
+                            disabled={updateStore.isPending || updateCategory.isPending}
                           >
                             <Save className="w-4 h-4" />
                           </Button>
