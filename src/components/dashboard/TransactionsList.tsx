@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -190,6 +191,7 @@ const TransactionsList = () => {
                       transaction={transaction}
                       isSelected={selectedTransactions.includes(transaction.id)}
                       onSelectOne={handleSelectOne}
+                      onDelete={deleteTransactions.mutateAsync}
                       getCategoryColor={getCategoryColor}
                       getParentCategory={getParentCategory}
                     />
