@@ -8,8 +8,10 @@ import CategoryGrid from './CategoryGrid';
 import CategoryDialog from './CategoryDialog';
 import StoreManager from './StoreManager';
 import { toast } from 'sonner';
+import { useAdmin } from '@/contexts/AdminContext';
 
 const CategoryManager = () => {
+  const { isAdmin } = useAdmin();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedMainCategory, setSelectedMainCategory] = useState<string | null>(null);
   const [newCategory, setNewCategory] = useState({
@@ -122,7 +124,13 @@ const CategoryManager = () => {
                 </p>
               </div>
             </div>
-            <Button onClick={() => setIsDialogOpen(true)} className="flex items-center gap-2">
+            <Button 
+              onClick={() => setIsDialogOpen(true)} 
+              className="flex items-center gap-2"
+              disabled={!isAdmin}
+              variant={!isAdmin ? "outline" : undefined}
+              title={!isAdmin ? "Unlock edit mode to add categories" : undefined}
+            >
               <Plus className="w-4 h-4" />
               Add Category
             </Button>
@@ -132,8 +140,8 @@ const CategoryManager = () => {
             categories={getCurrentCategories()}
             allCategories={allCategories}
             getSpentAmount={getSpentAmount}
-            onDeleteCategory={handleDeleteCategory}
-            onClick={selectedMainCategory ? undefined : handleCategoryClick}
+            onDeleteCategory={isAdmin ? handleDeleteCategory : undefined}
+            onClick={selectedMainCategory ? undefined : (isAdmin ? handleCategoryClick : undefined)}
             isDeleting={deleteCategory.isPending}
           />
 
@@ -144,7 +152,7 @@ const CategoryManager = () => {
             mainCategories={parentCategories}
             newCategory={newCategory}
             setNewCategory={setNewCategory}
-            onAddCategory={handleAddCategory}
+            onAddCategory={isAdmin ? handleAddCategory : () => {}}
             isAdding={addCategory.isPending}
           />
         </TabsContent>

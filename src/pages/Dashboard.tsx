@@ -141,6 +141,7 @@ const DashboardInner = () => {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           {/* Desktop Tab List - Hidden on Mobile */}
           <TabsList className={`grid w-full grid-cols-6 mb-8 ${isMobile ? 'hidden' : ''}`}>
+            {/* ... keep other triggers ... */}
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <PieChart className="w-4 h-4" />
               Overview
@@ -153,15 +154,15 @@ const DashboardInner = () => {
               <TrendingUp className="w-4 h-4" />
               Trends
             </TabsTrigger>
-            <TabsTrigger value="budget" className="flex items-center gap-2">
+            <TabsTrigger value="budget" className="flex items-center gap-2" disabled={!isAdmin}>
               <DollarSign className="w-4 h-4" />
               Budget
             </TabsTrigger>
-            <TabsTrigger value="categories" className="flex items-center gap-2">
+            <TabsTrigger value="categories" className="flex items-center gap-2" disabled={!isAdmin}>
               <Calendar className="w-4 h-4" />
               Categories
             </TabsTrigger>
-            <TabsTrigger value="import" className="flex items-center gap-2">
+            <TabsTrigger value="import" className="flex items-center gap-2" disabled={!isAdmin}>
               <Upload className="w-4 h-4" />
               Import Data
             </TabsTrigger>
@@ -188,25 +189,45 @@ const DashboardInner = () => {
           </TabsContent>
 
           <TabsContent value="budget" className="space-y-6">
-            <BudgetManager />
+            {isAdmin ? <BudgetManager /> : (
+              <Card className="p-8 bg-white dark:bg-slate-800 text-center">
+                <div className="text-lg text-slate-500 dark:text-slate-300">
+                  Unlock edit mode to manage or view budget details.
+                </div>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="categories" className="space-y-6">
-            <CategoryManager />
+            {isAdmin ? <CategoryManager /> : (
+              <Card className="p-8 bg-white dark:bg-slate-800 text-center">
+                <div className="text-lg text-slate-500 dark:text-slate-300">
+                  Unlock edit mode to view or update categories.
+                </div>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="import" className="space-y-6">
-            <Card className="p-8 bg-white dark:bg-slate-800">
-              <div className="text-center">
-                <Upload className="w-16 h-16 mx-auto text-slate-400 dark:text-slate-500 mb-4" />
-                <h2 className="text-xl font-semibold mb-2 dark:text-white">Import Your Financial Data</h2>
-                <p className="text-slate-600 dark:text-slate-300 mb-6">
-                  Upload CSV files from your banks and credit cards. Our system will automatically
-                  detect the format and categorize your transactions using your store preferences.
-                </p>
-                <CSVImporter />
-              </div>
-            </Card>
+            {isAdmin ? (
+              <Card className="p-8 bg-white dark:bg-slate-800">
+                <div className="text-center">
+                  <Upload className="w-16 h-16 mx-auto text-slate-400 dark:text-slate-500 mb-4" />
+                  <h2 className="text-xl font-semibold mb-2 dark:text-white">Import Your Financial Data</h2>
+                  <p className="text-slate-600 dark:text-slate-300 mb-6">
+                    Upload CSV files from your banks and credit cards. Our system will automatically
+                    detect the format and categorize your transactions using your store preferences.
+                  </p>
+                  <CSVImporter />
+                </div>
+              </Card>
+            ) : (
+              <Card className="p-8 bg-white dark:bg-slate-800 text-center">
+                <div className="text-lg text-slate-500 dark:text-slate-300">
+                  Unlock edit mode to import your financial data.
+                </div>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
       </main>

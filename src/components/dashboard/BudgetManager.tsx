@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,12 +6,14 @@ import { Label } from '@/components/ui/label';
 import { useParentCategories, useSubcategories, useUpdateCategory } from '@/hooks/useCategories';
 import { useTransactions } from '@/hooks/useTransactions';
 import { toast } from 'sonner';
+import { useAdmin } from '@/contexts/AdminContext';
 
 const BudgetManager = () => {
   const { data: parentCategories = [] } = useParentCategories();
   const { data: subcategories = [] } = useSubcategories();
   const { data: transactions = [] } = useTransactions();
   const updateCategory = useUpdateCategory();
+  const { isAdmin } = useAdmin();
   
   const [editingBudgets, setEditingBudgets] = useState<Record<string, string>>({});
 
@@ -122,7 +123,7 @@ const BudgetManager = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                   <div>
                     <Label>Monthly Budget</Label>
-                    {isEditing ? (
+                    {isEditing && isAdmin ? (
                       <Input
                         type="number"
                         step="0.01"
@@ -141,36 +142,38 @@ const BudgetManager = () => {
                   </div>
                   
                   <div className="flex gap-2">
-                    {isEditing ? (
-                      <>
-                        <Button 
-                          size="sm" 
-                          onClick={() => handleSaveBudget(category.id, budget)}
-                          disabled={updateCategory.isPending}
-                        >
-                          Save
-                        </Button>
+                    {isAdmin ? (
+                      isEditing ? (
+                        <>
+                          <Button 
+                            size="sm" 
+                            onClick={() => handleSaveBudget(category.id, budget)}
+                            disabled={updateCategory.isPending}
+                          >
+                            Save
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => setEditingBudgets(prev => {
+                              const updated = { ...prev };
+                              delete updated[category.id];
+                              return updated;
+                            })}
+                          >
+                            Cancel
+                          </Button>
+                        </>
+                      ) : (
                         <Button 
                           size="sm" 
                           variant="outline"
-                          onClick={() => setEditingBudgets(prev => {
-                            const updated = { ...prev };
-                            delete updated[category.id];
-                            return updated;
-                          })}
+                          onClick={() => handleBudgetChange(category.id, budget.toString())}
                         >
-                          Cancel
+                          Edit Budget
                         </Button>
-                      </>
-                    ) : (
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => handleBudgetChange(category.id, budget.toString())}
-                      >
-                        Edit Budget
-                      </Button>
-                    )}
+                      )
+                    ) : null}
                   </div>
                 </div>
 
@@ -218,7 +221,7 @@ const BudgetManager = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                   <div>
                     <Label>Monthly Budget</Label>
-                    {isEditing ? (
+                    {isEditing && isAdmin ? (
                       <Input
                         type="number"
                         step="0.01"
@@ -237,36 +240,38 @@ const BudgetManager = () => {
                   </div>
                   
                   <div className="flex gap-2">
-                    {isEditing ? (
-                      <>
-                        <Button 
-                          size="sm" 
-                          onClick={() => handleSaveBudget(category.id, budget)}
-                          disabled={updateCategory.isPending}
-                        >
-                          Save
-                        </Button>
+                    {isAdmin ? (
+                      isEditing ? (
+                        <>
+                          <Button 
+                            size="sm" 
+                            onClick={() => handleSaveBudget(category.id, budget)}
+                            disabled={updateCategory.isPending}
+                          >
+                            Save
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => setEditingBudgets(prev => {
+                              const updated = { ...prev };
+                              delete updated[category.id];
+                              return updated;
+                            })}
+                          >
+                            Cancel
+                          </Button>
+                        </>
+                      ) : (
                         <Button 
                           size="sm" 
                           variant="outline"
-                          onClick={() => setEditingBudgets(prev => {
-                            const updated = { ...prev };
-                            delete updated[category.id];
-                            return updated;
-                          })}
+                          onClick={() => handleBudgetChange(category.id, budget.toString())}
                         >
-                          Cancel
+                          Edit Budget
                         </Button>
-                      </>
-                    ) : (
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => handleBudgetChange(category.id, budget.toString())}
-                      >
-                        Edit Budget
-                      </Button>
-                    )}
+                      )
+                    ) : null}
                   </div>
                 </div>
 
