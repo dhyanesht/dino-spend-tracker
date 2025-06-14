@@ -31,6 +31,7 @@ function useDeleteStore() {
 const StoreManager = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editCategory, setEditCategory] = useState('');
+  const [editName, setEditName] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<{ id: string, name: string } | null>(null);
   const [testDescription, setTestDescription] = useState('');
   const [testResult, setTestResult] = useState<{
@@ -43,29 +44,33 @@ const StoreManager = () => {
   const updateStore = useUpdateStore();
   const deleteStore = useDeleteStore();
 
-  const handleEdit = (storeId: string, currentCategory: string) => {
+  const handleEdit = (storeId: string, currentCategory: string, currentName: string) => {
     setEditingId(storeId);
     setEditCategory(currentCategory);
+    setEditName(currentName);
   };
 
   const handleSave = async (storeId: string) => {
     try {
       await updateStore.mutateAsync({
         id: storeId,
+        name: editName,
         category_name: editCategory,
       });
-      toast.success('Store category updated successfully!');
+      toast.success('Store updated successfully!');
       setEditingId(null);
       setEditCategory('');
+      setEditName('');
     } catch (error) {
       console.error('Error updating store:', error);
-      toast.error('Failed to update store category');
+      toast.error('Failed to update store');
     }
   };
 
   const handleCancel = () => {
     setEditingId(null);
     setEditCategory('');
+    setEditName('');
   };
 
   const handleDelete = async () => {
@@ -121,7 +126,18 @@ const StoreManager = () => {
             {stores.length > 0 ? (
               stores.map((store) => (
                 <TableRow key={store.id}>
-                  <TableCell className="font-medium">{store.name}</TableCell>
+                  <TableCell className="font-medium">
+                    {editingId === store.id ? (
+                      <input
+                        value={editName}
+                        onChange={e => setEditName(e.target.value)}
+                        className="border px-2 py-1 rounded w-full text-base"
+                        autoFocus
+                      />
+                    ) : (
+                      <span>{store.name}</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     {editingId === store.id ? (
                       <Select value={editCategory} onValueChange={setEditCategory}>
@@ -170,7 +186,7 @@ const StoreManager = () => {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleEdit(store.id, store.category_name)}
+                            onClick={() => handleEdit(store.id, store.category_name, store.name)}
                           >
                             <Edit2 className="w-4 h-4" />
                           </Button>
