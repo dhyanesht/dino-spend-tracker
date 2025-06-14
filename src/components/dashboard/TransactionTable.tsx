@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -80,7 +79,7 @@ const TransactionTable = ({
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={isMobile ? 1 : 8} className="text-center py-8 text-slate-500">
+              <TableCell colSpan={isMobile ? 1 : 8} className="text-center py-8 text-muted-foreground">
                 No transactions found matching your filters
               </TableCell>
             </TableRow>

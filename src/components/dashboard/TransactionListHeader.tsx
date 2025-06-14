@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Trash2 } from 'lucide-react';
@@ -36,7 +35,7 @@ const TransactionListHeader = ({
       ) : (
         <div>
           <h2 className="text-xl font-semibold">All Transactions</h2>
-          <p className="text-slate-600">
+          <p className="text-sm text-muted-foreground">
             Showing {filteredCount} of {totalCount} transactions
           </p>
         </div>
