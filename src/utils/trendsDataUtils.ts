@@ -1,5 +1,26 @@
+/**
+ * Local definitions for Transaction and Category,
+ * since they're not exported from '@/integrations/supabase/types'
+ */
+export interface Transaction {
+  id: string;
+  description: string;
+  amount: number;
+  category: string;
+  date: string;
+  type: 'expense' | 'income';
+  created_at: string;
+}
 
-import { Transaction, Category } from '@/integrations/supabase/types';
+export interface Category {
+  id: string;
+  name: string;
+  type: 'fixed' | 'variable';
+  color: string;
+  created_at: string;
+  parent_category: string | null;
+  monthly_budget: number | null;
+}
 
 export const getMonthlyTrends = (
   transactions: Transaction[],
