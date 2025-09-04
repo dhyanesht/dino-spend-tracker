@@ -37,6 +37,33 @@ interface ColumnMapping {
   type: number | null;
 }
 
+// Payment providers to remove from transaction descriptions
+const PAYMENT_PROVIDERS_TO_REMOVE = [
+  'GglPay',
+  'ApplePay',
+  'APPLE PAY',
+  'GOOGLE PAY',
+  'GPAY',
+  'APPLEPAY',
+  'GOOGLEPAY'
+];
+
+const cleanTransactionDescription = (description: string): string => {
+  let cleaned = description;
+  
+  PAYMENT_PROVIDERS_TO_REMOVE.forEach(provider => {
+    // Remove the provider name with case-insensitive matching
+    // Also handle spaces and common separators around the provider name
+    const regex = new RegExp(`\\b${provider.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+    cleaned = cleaned.replace(regex, '').trim();
+    
+    // Clean up multiple spaces and leading/trailing separators
+    cleaned = cleaned.replace(/\s+/g, ' ').replace(/^[\s\-*]+|[\s\-*]+$/g, '').trim();
+  });
+  
+  return cleaned || description; // Return original if cleaning results in empty string
+};
+
 const CSVImporter = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [csvData, setCsvData] = useState<string[][]>([]);
@@ -157,7 +184,8 @@ const CSVImporter = () => {
         // Skip header row or empty rows
         if (index === 0 || row.length === 0) return;
 
-        const desc = row[description]?.trim();
+        const rawDesc = row[description]?.trim();
+        const desc = rawDesc ? cleanTransactionDescription(rawDesc) : '';
         const amountStr = row[amount]?.trim().replace(/[,$]/g, '');
         const dateStr = row[date]?.trim();
         const categoryStr = category !== null ? row[category]?.trim() : '';
