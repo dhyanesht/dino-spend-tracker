@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Edit2, Save, X, Delete } from 'lucide-react';
+import { Edit2, Save, X, Delete, ChevronUp, ChevronDown } from 'lucide-react';
 import { useStores, useUpdateStore } from '@/hooks/useStores';
 import { useSubcategories } from '@/hooks/useCategories';
 import { toast } from 'sonner';
@@ -28,6 +28,9 @@ function useDeleteStore() {
   });
 }
 
+type SortField = 'name' | 'category_name' | 'updated_at';
+type SortDirection = 'asc' | 'desc';
+
 const StoreManager = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editCategory, setEditCategory] = useState('');
@@ -38,11 +41,51 @@ const StoreManager = () => {
     extracted: string;
     match: any;
   } | null>(null);
+  const [sortField, setSortField] = useState<SortField>('name');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
   const { data: stores = [], isLoading } = useStores();
   const { data: subcategories = [] } = useSubcategories();
   const updateStore = useUpdateStore();
   const deleteStore = useDeleteStore();
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedStores = useMemo(() => {
+    const sorted = [...stores].sort((a, b) => {
+      const aValue = a[sortField];
+      const bValue = b[sortField];
+      
+      if (sortField === 'updated_at') {
+        const aDate = new Date(aValue).getTime();
+        const bDate = new Date(bValue).getTime();
+        return sortDirection === 'asc' ? aDate - bDate : bDate - aDate;
+      }
+      
+      const aString = String(aValue).toLowerCase();
+      const bString = String(bValue).toLowerCase();
+      
+      if (sortDirection === 'asc') {
+        return aString.localeCompare(bString);
+      } else {
+        return bString.localeCompare(aString);
+      }
+    });
+    
+    return sorted;
+  }, [stores, sortField, sortDirection]);
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) return null;
+    return sortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />;
+  };
 
   const handleEdit = (storeId: string, currentCategory: string, currentName: string) => {
     setEditingId(storeId);
@@ -116,15 +159,39 @@ const StoreManager = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Store Name</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Last Updated</TableHead>
+              <TableHead 
+                className="cursor-pointer select-none hover:bg-muted/50"
+                onClick={() => handleSort('name')}
+              >
+                <div className="flex items-center gap-1">
+                  Store Name
+                  {getSortIcon('name')}
+                </div>
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer select-none hover:bg-muted/50"
+                onClick={() => handleSort('category_name')}
+              >
+                <div className="flex items-center gap-1">
+                  Category
+                  {getSortIcon('category_name')}
+                </div>
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer select-none hover:bg-muted/50"
+                onClick={() => handleSort('updated_at')}
+              >
+                <div className="flex items-center gap-1">
+                  Last Updated
+                  {getSortIcon('updated_at')}
+                </div>
+              </TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {stores.length > 0 ? (
-              stores.map((store) => (
+            {sortedStores.length > 0 ? (
+              sortedStores.map((store) => (
                 <TableRow key={store.id}>
                   <TableCell className="font-medium">
                     {editingId === store.id ? (
