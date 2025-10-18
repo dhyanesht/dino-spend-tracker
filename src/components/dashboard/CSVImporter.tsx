@@ -12,6 +12,8 @@ import { useAddMultipleTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
 import { useStores, useAddStore, findBestStoreMatch, extractStoreName } from '@/hooks/useStores';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { Sparkles } from 'lucide-react';
 
 interface ParsedTransaction {
   description: string;
@@ -82,6 +84,7 @@ const CSVImporter = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [editingStore, setEditingStore] = useState<string | null>(null);
   const [editCategory, setEditCategory] = useState('');
+  const [isAiCategorizing, setIsAiCategorizing] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const addTransactionsMutation = useAddMultipleTransactions();
@@ -331,6 +334,59 @@ const CSVImporter = () => {
     });
   };
 
+  const handleAiCategorization = async () => {
+    if (!parseResults?.unmatchedStores.length) {
+      toast({
+        title: "No Transactions to Categorize",
+        description: "All transactions are already categorized",
+      });
+      return;
+    }
+
+    setIsAiCategorizing(true);
+    try {
+      console.log('Starting AI categorization for', parseResults.unmatchedStores.length, 'stores');
+      
+      // Prepare transactions for AI
+      const transactionsToCategorize = parseResults.unmatchedStores.map(store => ({
+        storeName: store.name,
+        description: parseResults.success.find(t => t.storeName === store.name)?.description || store.name
+      }));
+
+      const { data, error } = await supabase.functions.invoke('categorize-transactions', {
+        body: {
+          transactions: transactionsToCategorize,
+          categories: categories
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.categorizations) {
+        console.log('AI categorizations received:', data.categorizations);
+        
+        // Apply AI categorizations
+        data.categorizations.forEach((cat: { storeName: string; category: string }) => {
+          handleCategoryChange(cat.storeName, cat.category);
+        });
+
+        toast({
+          title: "AI Categorization Complete",
+          description: `Successfully categorized ${data.categorizations.length} stores using AI`,
+        });
+      }
+    } catch (error) {
+      console.error('AI categorization error:', error);
+      toast({
+        title: "AI Categorization Failed",
+        description: error instanceof Error ? error.message : 'Failed to categorize transactions with AI',
+        variant: "destructive",
+      });
+    } finally {
+      setIsAiCategorizing(false);
+    }
+  };
+
   const importTransactions = async () => {
     if (!parseResults?.success.length) return;
 
@@ -534,7 +590,19 @@ const CSVImporter = () => {
                   {/* Unmatched Stores Section */}
                   {parseResults.unmatchedStores.length > 0 && (
                     <div className="space-y-2">
-                      <h4 className="font-semibold text-orange-600">New Stores Need Categorization:</h4>
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-semibold text-orange-600">New Stores Need Categorization:</h4>
+                        <Button
+                          onClick={handleAiCategorization}
+                          disabled={isAiCategorizing}
+                          size="sm"
+                          variant="outline"
+                          className="flex items-center gap-2"
+                        >
+                          <Sparkles className="w-4 h-4" />
+                          {isAiCategorizing ? 'AI Categorizing...' : 'AI Auto-Categorize'}
+                        </Button>
+                      </div>
                       <div className="grid grid-cols-3 gap-2 text-sm font-medium p-2 bg-gray-100 rounded">
                         <div>Store Name</div>
                         <div>Category</div>

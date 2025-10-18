@@ -1,1 +1,4 @@
 project_id = "oskhweltnnifpzxahyij"
+
+[functions.categorize-transactions]
+verify_jwt = false
