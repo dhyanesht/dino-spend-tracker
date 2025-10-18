@@ -18,17 +18,15 @@ interface SwipeableTransactionRowProps {
 
 const SwipeableTransactionRow = ({ transaction, isSelected, onSelectOne, onDelete, getCategoryColor }: SwipeableTransactionRowProps) => {
   const [swipeOffset, setSwipeOffset] = useState(0);
-  const { isAdmin } = useAdmin();
 
   const handlers = useSwipeable({
-    onSwipedLeft: isAdmin ? () => setSwipeOffset(-80) : () => {},
-    onSwipedRight: isAdmin ? () => setSwipeOffset(0) : () => {},
+    onSwipedLeft: () => setSwipeOffset(-80),
+    onSwipedRight: () => setSwipeOffset(0),
     preventScrollOnSwipe: true,
     trackMouse: true,
   });
 
   const handleDelete = () => {
-    if (!isAdmin) return;
     onDelete([transaction.id])
       .then(() => {
         toast.success('Transaction deleted.');
@@ -46,7 +44,6 @@ const SwipeableTransactionRow = ({ transaction, isSelected, onSelectOne, onDelet
           <div className="absolute top-0 right-0 h-full flex items-center z-0">
             <Button variant="destructive" size="icon" className="h-full w-20 rounded-none"
               onClick={handleDelete}
-              disabled={!isAdmin}
             >
               <Trash2 />
             </Button>
@@ -57,8 +54,7 @@ const SwipeableTransactionRow = ({ transaction, isSelected, onSelectOne, onDelet
           >
             <Checkbox
               checked={isSelected}
-              onCheckedChange={isAdmin ? (checked) => onSelectOne(transaction.id, !!checked) : undefined}
-              disabled={!isAdmin}
+              onCheckedChange={(checked) => onSelectOne(transaction.id, !!checked)}
             />
             <div className="flex-grow min-w-0">
               <div className="flex justify-between items-start">
@@ -78,7 +74,7 @@ const SwipeableTransactionRow = ({ transaction, isSelected, onSelectOne, onDelet
                 <span>{new Date(transaction.date).toLocaleDateString()}</span>
               </div>
             </div>
-            {isAdmin && <EditTransactionDialog transaction={transaction} />}
+            <EditTransactionDialog transaction={transaction} />
           </div>
         </div>
       </TableCell>

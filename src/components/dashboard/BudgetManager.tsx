@@ -121,7 +121,7 @@ const BudgetManager = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                   <div>
                     <Label>Monthly Budget</Label>
-                    {isEditing && isAdmin ? (
+                    {isEditing ? (
                       <Input
                         type="number"
                         step="0.01"
@@ -140,38 +140,36 @@ const BudgetManager = () => {
                   </div>
                   
                   <div className="flex gap-2">
-                    {isAdmin ? (
-                      isEditing ? (
-                        <>
-                          <Button 
-                            size="sm" 
-                            onClick={() => handleSaveBudget(category.id, budget)}
-                            disabled={updateCategory.isPending}
-                          >
-                            Save
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => setEditingBudgets(prev => {
-                              const updated = { ...prev };
-                              delete updated[category.id];
-                              return updated;
-                            })}
-                          >
-                            Cancel
-                          </Button>
-                        </>
-                      ) : (
+                    {isEditing ? (
+                      <>
+                        <Button 
+                          size="sm" 
+                          onClick={() => handleSaveBudget(category.id, budget)}
+                          disabled={updateCategory.isPending}
+                        >
+                          Save
+                        </Button>
                         <Button 
                           size="sm" 
                           variant="outline"
-                          onClick={() => handleBudgetChange(category.id, budget.toString())}
+                          onClick={() => setEditingBudgets(prev => {
+                            const updated = { ...prev };
+                            delete updated[category.id];
+                            return updated;
+                          })}
                         >
-                          Edit Budget
+                          Cancel
                         </Button>
-                      )
-                    ) : null}
+                      </>
+                    ) : (
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => handleBudgetChange(category.id, budget.toString())}
+                      >
+                        Edit Budget
+                      </Button>
+                    )}
                   </div>
                 </div>
 
@@ -219,7 +217,7 @@ const BudgetManager = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                   <div>
                     <Label>Monthly Budget</Label>
-                    {isEditing && isAdmin ? (
+                    {isEditing ? (
                       <Input
                         type="number"
                         step="0.01"
@@ -238,38 +236,36 @@ const BudgetManager = () => {
                   </div>
                   
                   <div className="flex gap-2">
-                    {isAdmin ? (
-                      isEditing ? (
-                        <>
-                          <Button 
-                            size="sm" 
-                            onClick={() => handleSaveBudget(category.id, budget)}
-                            disabled={updateCategory.isPending}
-                          >
-                            Save
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => setEditingBudgets(prev => {
-                              const updated = { ...prev };
-                              delete updated[category.id];
-                              return updated;
-                            })}
-                          >
-                            Cancel
-                          </Button>
-                        </>
-                      ) : (
+                    {isEditing ? (
+                      <>
+                        <Button 
+                          size="sm" 
+                          onClick={() => handleSaveBudget(category.id, budget)}
+                          disabled={updateCategory.isPending}
+                        >
+                          Save
+                        </Button>
                         <Button 
                           size="sm" 
                           variant="outline"
-                          onClick={() => handleBudgetChange(category.id, budget.toString())}
+                          onClick={() => setEditingBudgets(prev => {
+                            const updated = { ...prev };
+                            delete updated[category.id];
+                            return updated;
+                          })}
                         >
-                          Edit Budget
+                          Cancel
                         </Button>
-                      )
-                    ) : null}
+                      </>
+                    ) : (
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => handleBudgetChange(category.id, budget.toString())}
+                      >
+                        Edit Budget
+                      </Button>
+                    )}
                   </div>
                 </div>
 

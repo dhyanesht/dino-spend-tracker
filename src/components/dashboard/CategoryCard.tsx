@@ -31,7 +31,6 @@ const CategoryCard = ({
   isDeleting,
   isUpdating
 }: CategoryCardProps) => {
-  const { isAdmin } = useAdmin();
   const [isEditingColor, setIsEditingColor] = useState(false);
   const [pendingColor, setPendingColor] = useState(category.color || '#3B82F6');
   
@@ -56,9 +55,7 @@ const CategoryCard = ({
 
   const handleColorEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isAdmin) {
-      setIsEditingColor(true);
-    }
+    setIsEditingColor(true);
   };
 
   const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -79,7 +76,7 @@ const CategoryCard = ({
           
           {/* Color dot with edit functionality */}
           <div className="flex items-center gap-2">
-            {isAdmin && isEditingColor ? (
+            {isEditingColor ? (
               <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                 <input
                   type="color"
@@ -106,10 +103,9 @@ const CategoryCard = ({
             ) : (
               <button
                 onClick={handleColorEdit}
-                className={`w-5 h-5 rounded-full border border-gray-300 ${isAdmin ? 'cursor-pointer hover:scale-105 transition' : 'cursor-default'}`}
+                className="w-5 h-5 rounded-full border border-gray-300 cursor-pointer hover:scale-105 transition"
                 style={{ backgroundColor: category.color || '#3B82F6' }}
-                disabled={!isAdmin}
-                title={isAdmin ? "Click to edit color" : "Category color"}
+                title="Click to edit color"
               />
             )}
             
@@ -129,7 +125,7 @@ const CategoryCard = ({
           </div>
         </div>
         
-        {!hasSubcategories && isAdmin && (
+        {!hasSubcategories && (
           <div className="flex gap-1">
             {onEdit && (
               <Button variant="ghost" size="sm" onClick={onEdit}>

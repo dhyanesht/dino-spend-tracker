@@ -137,9 +137,6 @@ const CategoryManager = () => {
             <Button 
               onClick={() => setIsDialogOpen(true)} 
               className="flex items-center gap-2"
-              disabled={!isAdmin}
-              variant={!isAdmin ? "outline" : undefined}
-              title={!isAdmin ? "Unlock edit mode to add categories" : undefined}
             >
               <Plus className="w-4 h-4" />
               Add Category
@@ -150,9 +147,9 @@ const CategoryManager = () => {
             categories={getCurrentCategories()}
             allCategories={allCategories}
             getSpentAmount={getSpentAmount}
-            onDeleteCategory={isAdmin ? handleDeleteCategory : undefined}
-            onUpdateCategoryColor={isAdmin ? handleUpdateCategoryColor : undefined}
-            onClick={selectedMainCategory ? undefined : (isAdmin ? handleCategoryClick : undefined)}
+            onDeleteCategory={handleDeleteCategory}
+            onUpdateCategoryColor={handleUpdateCategoryColor}
+            onClick={selectedMainCategory ? undefined : handleCategoryClick}
             isDeleting={deleteCategory.isPending}
             isUpdating={updateCategory.isPending}
           />
@@ -164,7 +161,7 @@ const CategoryManager = () => {
             mainCategories={parentCategories}
             newCategory={newCategory}
             setNewCategory={setNewCategory}
-            onAddCategory={isAdmin ? handleAddCategory : () => {}}
+            onAddCategory={handleAddCategory}
             isAdding={addCategory.isPending}
           />
         </TabsContent>

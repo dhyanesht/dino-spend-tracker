@@ -4,7 +4,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import StaticTransactionRow from './StaticTransactionRow';
 import SwipeableTransactionRow from './SwipeableTransactionRow';
 import { Transaction } from '@/hooks/useTransactions';
-import { useAdmin } from '@/contexts/AdminContext';
 
 interface TransactionTableProps {
   transactions: Transaction[];
@@ -31,8 +30,6 @@ const TransactionTable = ({
   isAllSelected,
   isSomeSelected,
 }: TransactionTableProps) => {
-  const { isAdmin } = useAdmin();
-
   return (
     <div className="border rounded-lg overflow-x-auto">
       <Table>
@@ -44,7 +41,6 @@ const TransactionTable = ({
                   checked={isAllSelected ? true : isSomeSelected ? 'indeterminate' : false}
                   onCheckedChange={(checked) => onSelectAll(!!checked)}
                   aria-label="Select all"
-                  disabled={!isAdmin}
                 />
               </TableHead>
               <TableHead>Date</TableHead>
@@ -65,8 +61,8 @@ const TransactionTable = ({
                   key={transaction.id}
                   transaction={transaction}
                   isSelected={selectedTransactions.includes(transaction.id)}
-                  onSelectOne={isAdmin ? onSelectOne : () => {}}
-                  onDelete={isAdmin ? onDelete : async () => {}}
+                  onSelectOne={onSelectOne}
+                  onDelete={onDelete}
                   getCategoryColor={getCategoryColor}
                 />
               ) : (
@@ -74,11 +70,11 @@ const TransactionTable = ({
                   key={transaction.id}
                   transaction={transaction}
                   isSelected={selectedTransactions.includes(transaction.id)}
-                  onSelectOne={isAdmin ? onSelectOne : () => {}}
-                  onDelete={isAdmin ? onDelete : async () => {}}
+                  onSelectOne={onSelectOne}
+                  onDelete={onDelete}
                   getCategoryColor={getCategoryColor}
                   getParentCategory={getParentCategory}
-                  isReadOnly={!isAdmin}
+                  isReadOnly={false}
                 />
               )
             ))
