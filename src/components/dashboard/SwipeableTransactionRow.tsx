@@ -7,7 +7,6 @@ import { Trash2 } from 'lucide-react';
 import EditTransactionDialog from './EditTransactionDialog';
 import { Transaction } from '@/hooks/useTransactions';
 import { toast } from 'sonner';
-import { useAdmin } from '@/contexts/AdminContext';
 
 interface SwipeableTransactionRowProps {
   transaction: Transaction;

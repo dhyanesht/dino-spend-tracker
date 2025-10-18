@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { transactionSchema } from '@/lib/validation';
+import { z } from 'zod';
 
 export interface Transaction {
   id: string;
@@ -36,10 +38,30 @@ export const useAddTransaction = () => {
   
   return useMutation({
     mutationFn: async (transaction: Omit<Transaction, 'id' | 'created_at'>) => {
-      console.log('Adding transaction:', transaction);
+      // Validate input
+      const validated = transactionSchema.parse({
+        description: transaction.description,
+        amount: transaction.amount,
+        date: transaction.date,
+        category: transaction.category,
+        type: transaction.type
+      });
+      
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('You must be logged in to add transactions');
+      
+      console.log('Adding transaction:', validated);
       const { data, error } = await supabase
         .from('transactions')
-        .insert([transaction])
+        .insert([{
+          description: validated.description,
+          amount: validated.amount,
+          date: validated.date,
+          category: validated.category,
+          type: validated.type,
+          user_id: user.id
+        }])
         .select()
         .single();
       
@@ -62,10 +84,33 @@ export const useAddMultipleTransactions = () => {
   
   return useMutation({
     mutationFn: async (transactions: Omit<Transaction, 'id' | 'created_at'>[]) => {
-      console.log('Adding multiple transactions:', transactions.length, 'records');
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('You must be logged in to add transactions');
+      
+      // Validate all transactions
+      const validated = transactions.map(t => {
+        const v = transactionSchema.parse({
+          description: t.description,
+          amount: t.amount,
+          date: t.date,
+          category: t.category,
+          type: t.type
+        });
+        return {
+          description: v.description,
+          amount: v.amount,
+          date: v.date,
+          category: v.category,
+          type: v.type,
+          user_id: user.id
+        };
+      });
+      
+      console.log('Adding multiple transactions:', validated.length, 'records');
       const { data, error } = await supabase
         .from('transactions')
-        .insert(transactions)
+        .insert(validated)
         .select();
       
       if (error) {

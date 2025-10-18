@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Edit, Trash2, FolderOpen, Folder } from 'lucide-react';
 import { Category } from '@/hooks/useCategories';
-import { useAdmin } from '@/contexts/AdminContext';
 
 interface CategoryCardProps {
   category: Category;

@@ -9,10 +9,8 @@ import CategoryGrid from './CategoryGrid';
 import CategoryDialog from './CategoryDialog';
 import StoreManager from './StoreManager';
 import { toast } from 'sonner';
-import { useAdmin } from '@/contexts/AdminContext';
 
 const CategoryManager = () => {
-  const { isAdmin } = useAdmin();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedMainCategory, setSelectedMainCategory] = useState<string | null>(null);
   const [newCategory, setNewCategory] = useState({

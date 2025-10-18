@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { storeSchema } from '@/lib/validation';
 
 export interface Store {
   id: string;
@@ -200,20 +201,31 @@ export const useAddStore = () => {
   
   return useMutation({
     mutationFn: async (store: Omit<Store, 'id' | 'created_at' | 'updated_at'>) => {
-      console.log('Adding store mapping:', store);
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('You must be logged in to add stores');
+      
+      // Validate input
+      const validated = storeSchema.parse({
+        name: store.name,
+        category_name: store.category_name
+      });
+      
+      console.log('Adding store mapping:', validated);
       
       // Check if store already exists to avoid duplicates
       const { data: existingStore } = await supabase
         .from('stores')
         .select('*')
-        .eq('name', store.name)
+        .eq('name', validated.name)
+        .eq('user_id', user.id)
         .maybeSingle();
       
       if (existingStore) {
         console.log('Store already exists, updating instead:', existingStore);
         const { data, error } = await supabase
           .from('stores')
-          .update({ category_name: store.category_name, updated_at: new Date().toISOString() })
+          .update({ category_name: validated.category_name, updated_at: new Date().toISOString() })
           .eq('id', existingStore.id)
           .select()
           .single();
@@ -228,7 +240,11 @@ export const useAddStore = () => {
       
       const { data, error } = await supabase
         .from('stores')
-        .insert([store])
+        .insert([{
+          name: validated.name,
+          category_name: validated.category_name,
+          user_id: user.id
+        }])
         .select()
         .single();
       

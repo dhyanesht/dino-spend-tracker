@@ -6,14 +6,12 @@ import { Label } from '@/components/ui/label';
 import { useParentCategories, useSubcategories, useUpdateCategory } from '@/hooks/useCategories';
 import { useTransactions } from '@/hooks/useTransactions';
 import { toast } from 'sonner';
-import { useAdmin } from '@/contexts/AdminContext';
 
 const BudgetManager = () => {
   const { data: parentCategories = [] } = useParentCategories();
   const { data: subcategories = [] } = useSubcategories();
   const { data: transactions = [] } = useTransactions();
   const updateCategory = useUpdateCategory();
-  const { isAdmin } = useAdmin();
   
   const [editingBudgets, setEditingBudgets] = useState<Record<string, string>>({});
 
