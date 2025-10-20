@@ -280,6 +280,12 @@ const CSVImporter = () => {
           return;
         }
 
+        // Skip negative transactions (credit card payments)
+        if (parsedAmount < 0) {
+          console.log(`Skipping negative transaction (payment): ${parsedAmount}`);
+          return;
+        }
+
         // Parse date (support multiple formats)
         let parsedDate: Date;
         try {
