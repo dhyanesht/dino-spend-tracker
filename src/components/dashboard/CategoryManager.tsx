@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, ArrowLeft } from 'lucide-react';
+import { Plus, ArrowLeft, Download, Upload } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCategories, useParentCategories, useSubcategories, useAddCategory, useDeleteCategory, useUpdateCategory } from '@/hooks/useCategories';
 import { useTransactions } from '@/hooks/useTransactions';
@@ -20,6 +20,7 @@ const CategoryManager = () => {
     color: '#3B82F6',
     parent_category: null as string | null,
   });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: allCategories = [], isLoading: categoriesLoading } = useCategories();
   const { data: parentCategories = [], isLoading: parentLoading } = useParentCategories();
@@ -93,6 +94,101 @@ const CategoryManager = () => {
     return parentCategories;
   };
 
+  const handleExportCategories = () => {
+    try {
+      // Prepare export data (exclude id, user_id, created_at)
+      const exportData = allCategories.map(cat => ({
+        name: cat.name,
+        type: cat.type,
+        monthly_budget: cat.monthly_budget,
+        color: cat.color,
+        parent_category: cat.parent_category,
+      }));
+
+      // Create and download JSON file
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `categories-export-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success(`Exported ${exportData.length} categories`);
+    } catch (error) {
+      console.error('Error exporting categories:', error);
+      toast.error('Failed to export categories');
+    }
+  };
+
+  const handleImportCategories = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const content = e.target?.result as string;
+        const importedCategories = JSON.parse(content);
+
+        if (!Array.isArray(importedCategories)) {
+          throw new Error('Invalid file format. Expected an array of categories.');
+        }
+
+        // Validate structure
+        const validCategories = importedCategories.filter(cat => 
+          cat.name && cat.type && typeof cat.monthly_budget === 'number'
+        );
+
+        if (validCategories.length === 0) {
+          throw new Error('No valid categories found in file');
+        }
+
+        // Import categories one by one
+        let successCount = 0;
+        let skipCount = 0;
+
+        for (const cat of validCategories) {
+          try {
+            // Check if category already exists
+            const exists = allCategories.some(existing => existing.name === cat.name);
+            if (exists) {
+              skipCount++;
+              continue;
+            }
+
+            await addCategory.mutateAsync({
+              name: cat.name,
+              type: cat.type,
+              monthly_budget: cat.monthly_budget || 0,
+              color: cat.color || '#3B82F6',
+              parent_category: cat.parent_category || null,
+            });
+            successCount++;
+          } catch (error) {
+            console.error(`Failed to import category ${cat.name}:`, error);
+          }
+        }
+
+        toast.success(
+          `Import complete! Added ${successCount} categories${skipCount > 0 ? `, skipped ${skipCount} duplicates` : ''}`
+        );
+      } catch (error) {
+        console.error('Error importing categories:', error);
+        toast.error(error instanceof Error ? error.message : 'Failed to import categories');
+      }
+    };
+
+    reader.readAsText(file);
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   if (categoriesLoading || parentLoading || subcategoriesLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -103,6 +199,14 @@ const CategoryManager = () => {
 
   return (
     <div className="space-y-6">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json"
+        onChange={handleImportCategories}
+        className="hidden"
+      />
+      
       <Tabs defaultValue="categories" className="w-full">
         <TabsList>
           <TabsTrigger value="categories">Categories</TabsTrigger>
@@ -134,13 +238,31 @@ const CategoryManager = () => {
                 </p>
               </div>
             </div>
-            <Button 
-              onClick={() => setIsDialogOpen(true)} 
-              className="flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Add Category
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline"
+                onClick={handleExportCategories}
+                className="flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Export
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2"
+              >
+                <Upload className="w-4 h-4" />
+                Import
+              </Button>
+              <Button 
+                onClick={() => setIsDialogOpen(true)} 
+                className="flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Add Category
+              </Button>
+            </div>
           </div>
 
           <CategoryGrid
