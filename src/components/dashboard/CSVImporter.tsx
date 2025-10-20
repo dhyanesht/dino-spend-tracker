@@ -66,6 +66,73 @@ const cleanTransactionDescription = (description: string): string => {
   return cleaned || description; // Return original if cleaning results in empty string
 };
 
+// Auto-detect CSV column mappings based on headers and sample data
+const autoDetectColumns = (headerRow: string[]): ColumnMapping => {
+  const mapping: ColumnMapping = {
+    description: null,
+    amount: null,
+    category: null,
+    date: null,
+    type: null,
+  };
+
+  headerRow.forEach((header, index) => {
+    const normalized = header.toLowerCase().trim();
+    
+    // Description column patterns
+    if (mapping.description === null && (
+      normalized.includes('description') ||
+      normalized.includes('merchant') ||
+      normalized.includes('name') ||
+      normalized.includes('payee') ||
+      normalized === 'desc'
+    )) {
+      mapping.description = index;
+    }
+    
+    // Amount column patterns
+    if (mapping.amount === null && (
+      normalized.includes('amount') ||
+      normalized.includes('debit') ||
+      normalized.includes('credit') ||
+      normalized.includes('total') ||
+      normalized === 'sum' ||
+      normalized.includes('value')
+    )) {
+      mapping.amount = index;
+    }
+    
+    // Date column patterns
+    if (mapping.date === null && (
+      normalized.includes('date') ||
+      normalized.includes('time') ||
+      normalized === 'day' ||
+      normalized.includes('posted')
+    )) {
+      mapping.date = index;
+    }
+    
+    // Category column patterns
+    if (mapping.category === null && (
+      normalized.includes('category') ||
+      normalized.includes('type') && !normalized.includes('transaction')
+    )) {
+      mapping.category = index;
+    }
+    
+    // Transaction type column patterns
+    if (mapping.type === null && (
+      normalized.includes('transaction type') ||
+      normalized.includes('trans type') ||
+      normalized === 'type' && mapping.category !== null
+    )) {
+      mapping.type = index;
+    }
+  });
+
+  return mapping;
+};
+
 const CSVImporter = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [csvData, setCsvData] = useState<string[][]>([]);
@@ -136,19 +203,19 @@ const CSVImporter = () => {
         }
 
         setCsvData(rows);
-        setColumnMapping({
-          description: null,
-          amount: null,
-          category: null,
-          date: null,
-          type: null,
-        });
+        
+        // Auto-detect column mappings
+        const autoMapping = autoDetectColumns(rows[0]);
+        setColumnMapping(autoMapping);
         setParseResults(null);
         setIsDialogOpen(true);
 
+        const mappedCount = Object.values(autoMapping).filter(v => v !== null).length;
         toast({
           title: "CSV Loaded Successfully",
-          description: `Found ${rows.length} rows. Please map the columns to proceed.`,
+          description: mappedCount >= 3 
+            ? `Auto-detected ${mappedCount} columns. Review and adjust if needed.`
+            : `Found ${rows.length} rows. Please map the columns to proceed.`,
         });
       } catch (error) {
         toast({
