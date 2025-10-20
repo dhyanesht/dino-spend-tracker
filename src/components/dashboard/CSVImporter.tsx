@@ -379,9 +379,28 @@ const CSVImporter = () => {
       if (data?.categorizations && Array.isArray(data.categorizations)) {
         console.log('AI categorizations received:', data.categorizations);
         
-        // Apply AI categorizations
-        data.categorizations.forEach((cat: { storeName: string; category: string }) => {
-          handleCategoryChange(cat.storeName, cat.category);
+        // Apply all AI categorizations at once (not in a loop to avoid state update issues)
+        const categorizationMap = new Map<string, string>(
+          data.categorizations.map((cat: { storeName: string; category: string }) => [cat.storeName, cat.category])
+        );
+
+        const updatedUnmatched = parseResults.unmatchedStores.map(store => ({
+          ...store,
+          category: categorizationMap.get(store.name) ?? store.category
+        }));
+        
+        const updatedSuccess = parseResults.success.map(transaction => {
+          const aiCategory = categorizationMap.get(transaction.storeName || '');
+          if (aiCategory && !transaction.matchedStore) {
+            return { ...transaction, category: aiCategory };
+          }
+          return transaction;
+        });
+        
+        setParseResults({
+          ...parseResults,
+          unmatchedStores: updatedUnmatched,
+          success: updatedSuccess
         });
 
         toast({
