@@ -353,6 +353,11 @@ const CSVImporter = () => {
         description: parseResults.success.find(t => t.storeName === store.name)?.description || store.name
       }));
 
+      console.log('Calling edge function with:', { 
+        transactionCount: transactionsToCategorize.length,
+        categoryCount: categories.length 
+      });
+
       const { data, error } = await supabase.functions.invoke('categorize-transactions', {
         body: {
           transactions: transactionsToCategorize,
@@ -360,9 +365,18 @@ const CSVImporter = () => {
         }
       });
 
-      if (error) throw error;
+      console.log('Edge function response:', { data, error });
 
-      if (data?.categorizations) {
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message || 'Failed to call categorization function');
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      if (data?.categorizations && Array.isArray(data.categorizations)) {
         console.log('AI categorizations received:', data.categorizations);
         
         // Apply AI categorizations
@@ -374,6 +388,8 @@ const CSVImporter = () => {
           title: "AI Categorization Complete",
           description: `Successfully categorized ${data.categorizations.length} stores using AI`,
         });
+      } else {
+        throw new Error('Invalid response format from AI');
       }
     } catch (error) {
       console.error('AI categorization error:', error);
