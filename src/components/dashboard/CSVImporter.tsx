@@ -250,11 +250,28 @@ const CSVImporter = () => {
         let matchedStoreFlag = false;
 
         if (matchedStore) {
-          // Found a matching store, use its category
-          console.log(`Found matching store: ${matchedStore.name} → ${matchedStore.category_name}`);
-          finalCategory = matchedStore.category_name;
-          storeName = matchedStore.name; // Use the stored name for consistency
-          matchedStoreFlag = true;
+          // Found a matching store, validate it's not a parent category
+          const matchedCategory = categories.find(cat => cat.name === matchedStore.category_name);
+          if (matchedCategory?.parent_category === null) {
+            // This is a parent category, treat as unmatched
+            console.log(`Store ${matchedStore.name} uses parent category, treating as unmatched`);
+            if (storeName && !unmatchedStores.has(storeName)) {
+              unmatchedStores.set(storeName, {
+                name: storeName,
+                category: 'Other',
+                count: 1
+              });
+            } else if (storeName) {
+              const existing = unmatchedStores.get(storeName)!;
+              existing.count++;
+            }
+          } else {
+            // Valid subcategory, use it
+            console.log(`Found matching store: ${matchedStore.name} → ${matchedStore.category_name}`);
+            finalCategory = matchedStore.category_name;
+            storeName = matchedStore.name; // Use the stored name for consistency
+            matchedStoreFlag = true;
+          }
         } else if (categoryStr) {
           // Manual category provided in CSV
           const foundCategory = categories.find(cat => 
@@ -316,6 +333,17 @@ const CSVImporter = () => {
 
   const handleCategoryChange = (storeName: string, newCategory: string) => {
     if (!parseResults) return;
+    
+    // Validate that the selected category is not a parent category
+    const selectedCategory = categories.find(cat => cat.name === newCategory);
+    if (selectedCategory?.parent_category === null) {
+      toast({
+        title: "Invalid Category",
+        description: "Cannot assign parent category to transactions. Please select a subcategory.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     const updatedUnmatched = parseResults.unmatchedStores.map(store => 
       store.name === storeName ? { ...store, category: newCategory } : store
@@ -384,13 +412,23 @@ const CSVImporter = () => {
           data.categorizations.map((cat: { storeName: string; category: string }) => [cat.storeName, cat.category])
         );
 
+        // Validate AI categorizations - filter out parent categories
+        const validCategorizations = new Map<string, string>();
+        categorizationMap.forEach((category, storeName) => {
+          const cat = categories.find(c => c.name === category);
+          if (cat && cat.parent_category !== null) {
+            // Only accept subcategories
+            validCategorizations.set(storeName, category);
+          }
+        });
+
         const updatedUnmatched = parseResults.unmatchedStores.map(store => ({
           ...store,
-          category: categorizationMap.get(store.name) ?? store.category
+          category: validCategorizations.get(store.name) ?? store.category
         }));
         
         const updatedSuccess = parseResults.success.map(transaction => {
-          const aiCategory = categorizationMap.get(transaction.storeName || '');
+          const aiCategory = validCategorizations.get(transaction.storeName || '');
           if (aiCategory && !transaction.matchedStore) {
             return { ...transaction, category: aiCategory };
           }
