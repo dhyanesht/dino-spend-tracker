@@ -153,3 +153,127 @@ export const calculateSpendingInsights = (transactions: Transaction[]) => {
 
   return { currentSpending, previousSpending, spendingChange };
 };
+
+export const getParentCategoryComparison = (
+  transactions: Transaction[],
+  parentCategories: Category[],
+  subcategories: Category[]
+) => {
+  const now = new Date();
+  const currentMonth = now.toISOString().slice(0, 7);
+  
+  const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const previousMonthKey = previousMonth.toISOString().slice(0, 7);
+  
+  const currentYear = now.getFullYear();
+  const lastYear = currentYear - 1;
+  const currentYearMonth = `${currentYear}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const lastYearMonth = `${lastYear}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  return parentCategories.map(parentCat => {
+    const relatedSubcategories = subcategories.filter(sub => sub.parent_category === parentCat.name);
+    const subcategoryNames = relatedSubcategories.map(sub => sub.name);
+
+    const currentMonthSpending = transactions
+      .filter(t => t.date.startsWith(currentMonth) && subcategoryNames.includes(t.category))
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+
+    const previousMonthSpending = transactions
+      .filter(t => t.date.startsWith(previousMonthKey) && subcategoryNames.includes(t.category))
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+
+    const currentYearSpending = transactions
+      .filter(t => t.date.startsWith(currentYearMonth) && subcategoryNames.includes(t.category))
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+
+    const lastYearSpending = transactions
+      .filter(t => t.date.startsWith(lastYearMonth) && subcategoryNames.includes(t.category))
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+
+    const monthOverMonth = previousMonthSpending > 0
+      ? ((currentMonthSpending - previousMonthSpending) / previousMonthSpending) * 100
+      : 0;
+
+    const yearOverYear = lastYearSpending > 0
+      ? ((currentYearSpending - lastYearSpending) / lastYearSpending) * 100
+      : 0;
+
+    return {
+      parentCategory: parentCat.name,
+      currentMonth: currentMonthSpending,
+      previousMonth: previousMonthSpending,
+      monthOverMonth,
+      currentYear: currentYearSpending,
+      previousYear: lastYearSpending,
+      yearOverYear,
+      color: parentCat.color
+    };
+  }).filter(cat => cat.currentMonth > 0 || cat.previousMonth > 0);
+};
+
+export const getParentCategoryTableData = (
+  transactions: Transaction[],
+  parentCategories: Category[],
+  subcategories: Category[],
+  monthCount: number = 6
+) => {
+  const now = new Date();
+  const monthColumns: string[] = [];
+  
+  // Generate month columns
+  for (let i = monthCount - 1; i >= 0; i--) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const monthName = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+    monthColumns.push(monthName);
+  }
+
+  const tableData = parentCategories.map(parentCat => {
+    const relatedSubcategories = subcategories.filter(sub => sub.parent_category === parentCat.name);
+    const subcategoryNames = relatedSubcategories.map(sub => sub.name);
+
+    const parentMonths: Record<string, number> = {};
+    
+    // Calculate spending for each month for parent
+    for (let i = monthCount - 1; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthKey = date.toISOString().slice(0, 7);
+      const monthName = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+      
+      const monthSpending = transactions
+        .filter(t => t.date.startsWith(monthKey) && subcategoryNames.includes(t.category))
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+      
+      parentMonths[monthName] = monthSpending;
+    }
+
+    // Calculate spending for each subcategory
+    const subcategoryData = relatedSubcategories.map(sub => {
+      const subMonths: Record<string, number> = {};
+      
+      for (let i = monthCount - 1; i >= 0; i--) {
+        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const monthKey = date.toISOString().slice(0, 7);
+        const monthName = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+        
+        const monthSpending = transactions
+          .filter(t => t.date.startsWith(monthKey) && t.category === sub.name)
+          .reduce((sum, t) => sum + Number(t.amount), 0);
+        
+        subMonths[monthName] = monthSpending;
+      }
+
+      return {
+        name: sub.name,
+        months: subMonths
+      };
+    });
+
+    return {
+      parentCategory: parentCat.name,
+      months: parentMonths,
+      subcategories: subcategoryData
+    };
+  }).filter(cat => Object.values(cat.months).some(val => val > 0));
+
+  return { tableData, monthColumns };
+};

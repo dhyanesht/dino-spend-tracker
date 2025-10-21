@@ -1,29 +1,34 @@
 
 import React, { useState } from 'react';
 import { useTransactions } from '@/hooks/useTransactions';
-import { useCategories } from '@/hooks/useCategories';
+import { useParentCategories, useSubcategories } from '@/hooks/useCategories';
 import { ChartSkeleton } from '@/components/ui/enhanced-skeleton';
 import { NoTrendsEmpty } from '@/components/ui/empty-state';
 import { 
   getMonthlyTrends, 
   getCategoryComparisonData, 
   getYearOverYearData, 
-  calculateSpendingInsights 
+  calculateSpendingInsights,
+  getParentCategoryComparison,
+  getParentCategoryTableData
 } from '@/utils/trendsDataUtils';
 import TrendsControls from './TrendsControls';
 import MonthlyTrendsChart from './MonthlyTrendsChart';
 import CategoryComparisonChart from './CategoryComparisonChart';
 import YearOverYearChart from './YearOverYearChart';
 import TrendsInsights from './TrendsInsights';
+import ParentCategoryComparison from './ParentCategoryComparison';
+import ParentCategoryTable from './ParentCategoryTable';
 
 const TrendsAnalysis = () => {
   const [timeRange, setTimeRange] = useState('6months');
   const [selectedCategory, setSelectedCategory] = useState('all');
   
   const { data: transactions = [], isLoading: transactionsLoading } = useTransactions();
-  const { data: categories = [], isLoading: categoriesLoading } = useCategories();
+  const { data: parentCategories = [], isLoading: parentCategoriesLoading } = useParentCategories();
+  const { data: subcategories = [], isLoading: subcategoriesLoading } = useSubcategories();
 
-  if (transactionsLoading || categoriesLoading) {
+  if (transactionsLoading || parentCategoriesLoading || subcategoriesLoading) {
     return (
       <div className="space-y-6">
         <ChartSkeleton />
@@ -47,20 +52,33 @@ const TrendsAnalysis = () => {
     ? expenseTransactions
     : expenseTransactions.filter(t => t.category === selectedCategory);
 
+  const allCategories = [...parentCategories, ...subcategories];
   const monthlyTrends = getMonthlyTrends(transactionsForAnalysis, timeRange);
-  const categoryComparison = getCategoryComparisonData(expenseTransactions, categories, timeRange, selectedCategory);
+  const categoryComparison = getCategoryComparisonData(expenseTransactions, allCategories, timeRange, selectedCategory);
   const yearOverYearData = getYearOverYearData(transactionsForAnalysis);
   const insights = calculateSpendingInsights(transactionsForAnalysis);
+  const parentComparison = getParentCategoryComparison(expenseTransactions, parentCategories, subcategories);
+  const { tableData, monthColumns } = getParentCategoryTableData(expenseTransactions, parentCategories, subcategories, 6);
 
   return (
     <div className="space-y-6">
+      <TrendsInsights
+        currentSpending={insights.currentSpending}
+        spendingChange={insights.spendingChange}
+        totalTransactions={transactions.length}
+      />
+
       <TrendsControls
         timeRange={timeRange}
         setTimeRange={setTimeRange}
         selectedCategory={selectedCategory}
         setSelectedCategory={setSelectedCategory}
-        categories={categories}
+        categories={allCategories}
       />
+
+      <ParentCategoryComparison data={parentComparison} />
+
+      <ParentCategoryTable data={tableData} monthColumns={monthColumns} />
 
       <MonthlyTrendsChart
         data={monthlyTrends}
@@ -76,12 +94,6 @@ const TrendsAnalysis = () => {
       <YearOverYearChart
         data={yearOverYearData}
         selectedCategory={selectedCategory}
-      />
-
-      <TrendsInsights
-        currentSpending={insights.currentSpending}
-        spendingChange={insights.spendingChange}
-        totalTransactions={transactions.length}
       />
     </div>
   );
