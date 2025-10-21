@@ -10,7 +10,8 @@ import {
   getYearOverYearData, 
   calculateSpendingInsights,
   getParentCategoryComparison,
-  getParentCategoryTableData
+  getParentCategoryTableData,
+  getBudgetPerformanceData
 } from '@/utils/trendsDataUtils';
 import TrendsControls from './TrendsControls';
 import MonthlyTrendsChart from './MonthlyTrendsChart';
@@ -19,6 +20,7 @@ import YearOverYearChart from './YearOverYearChart';
 import TrendsInsights from './TrendsInsights';
 import ParentCategoryComparison from './ParentCategoryComparison';
 import ParentCategoryTable from './ParentCategoryTable';
+import BudgetPerformanceChart from './BudgetPerformanceChart';
 
 const TrendsAnalysis = () => {
   const [timeRange, setTimeRange] = useState('6months');
@@ -59,6 +61,7 @@ const TrendsAnalysis = () => {
   const insights = calculateSpendingInsights(transactionsForAnalysis);
   const parentComparison = getParentCategoryComparison(expenseTransactions, parentCategories, subcategories);
   const { tableData, monthColumns } = getParentCategoryTableData(expenseTransactions, parentCategories, subcategories, 6);
+  const budgetPerformance = getBudgetPerformanceData(expenseTransactions, parentCategories, subcategories);
 
   return (
     <div className="space-y-6">
@@ -79,6 +82,8 @@ const TrendsAnalysis = () => {
       <ParentCategoryComparison data={parentComparison} />
 
       <ParentCategoryTable data={tableData} monthColumns={monthColumns} />
+
+      <BudgetPerformanceChart data={budgetPerformance} />
 
       <MonthlyTrendsChart
         data={monthlyTrends}

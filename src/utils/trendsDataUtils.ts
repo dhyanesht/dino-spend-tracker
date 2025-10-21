@@ -277,3 +277,35 @@ export const getParentCategoryTableData = (
 
   return { tableData, monthColumns };
 };
+
+export const getBudgetPerformanceData = (
+  transactions: Transaction[],
+  parentCategories: Category[],
+  subcategories: Category[]
+) => {
+  const now = new Date();
+  const currentMonth = now.toISOString().slice(0, 7);
+
+  return parentCategories
+    .filter(parent => parent.monthly_budget && parent.monthly_budget > 0)
+    .map(parentCat => {
+      const relatedSubcategories = subcategories.filter(sub => sub.parent_category === parentCat.name);
+      const subcategoryNames = relatedSubcategories.map(sub => sub.name);
+
+      const currentMonthSpending = transactions
+        .filter(t => t.date.startsWith(currentMonth) && subcategoryNames.includes(t.category))
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+
+      const budget = Number(parentCat.monthly_budget);
+      const percentage = budget > 0 ? (currentMonthSpending / budget) * 100 : 0;
+
+      return {
+        category: parentCat.name,
+        percentage,
+        actual: currentMonthSpending,
+        budget,
+        color: parentCat.color
+      };
+    })
+    .sort((a, b) => b.percentage - a.percentage);
+};
