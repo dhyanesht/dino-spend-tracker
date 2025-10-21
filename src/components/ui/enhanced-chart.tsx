@@ -1,7 +1,7 @@
 
 import React from "react"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LineChart, Line, AreaChart, Area } from "recharts"
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LineChart, Line, AreaChart, Area, Legend } from "recharts"
 
 interface EnhancedPieChartProps {
   data: any[]
@@ -24,6 +24,7 @@ export function EnhancedPieChart({ data, dataKey, nameKey, colors, title }: Enha
     <ChartContainer config={chartConfig} className="h-80">
       <PieChart>
         <ChartTooltip content={<ChartTooltipContent />} />
+        <ChartLegend content={<ChartLegendContent />} />
         <Pie
           data={data}
           dataKey={dataKey}

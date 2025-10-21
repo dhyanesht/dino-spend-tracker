@@ -21,17 +21,23 @@ const ExpenseOverview = ({ setActiveTab }: ExpenseOverviewProps) => {
     return <DashboardSkeleton />;
   }
 
-  // Get the last 3 months of data instead of just current month
-  const threeMonthsAgo = new Date();
-  threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-  const threeMonthsAgoKey = threeMonthsAgo.toISOString().slice(0, 7);
+  // Get current month data
+  const currentDate = new Date();
+  const currentMonthKey = currentDate.toISOString().slice(0, 7);
 
-  const recentTransactions = transactions.filter(t => 
-    t.date >= threeMonthsAgoKey && t.type === 'expense'
+  const currentMonthTransactions = transactions.filter(t => 
+    t.date.startsWith(currentMonthKey) && t.type === 'expense'
   );
 
-  // If no recent transactions, show all expenses
-  const displayTransactions = recentTransactions.length > 0 ? recentTransactions : 
+  // For weekly trends, get last 8 weeks of data
+  const eightWeeksAgo = new Date();
+  eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 56); // 8 weeks * 7 days
+  const allRecentTransactions = transactions.filter(t => 
+    new Date(t.date) >= eightWeeksAgo && t.type === 'expense'
+  );
+
+  // If no current month transactions, show all expenses
+  const displayTransactions = currentMonthTransactions.length > 0 ? currentMonthTransactions : 
     transactions.filter(t => t.type === 'expense');
 
   if (displayTransactions.length === 0) {
@@ -91,7 +97,7 @@ const ExpenseOverview = ({ setActiveTab }: ExpenseOverviewProps) => {
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekStart.getDate() + 6);
       
-      const weekTransactions = displayTransactions.filter(t => {
+      const weekTransactions = allRecentTransactions.filter(t => {
         const transactionDate = new Date(t.date);
         return transactionDate >= weekStart && transactionDate <= weekEnd;
       });
@@ -115,7 +121,7 @@ const ExpenseOverview = ({ setActiveTab }: ExpenseOverviewProps) => {
     return sum + relatedSubcategories.reduce((subSum, sub) => subSum + Number(sub.monthly_budget), 0);
   }, 0);
   const totalTransactions = displayTransactions.length;
-  const timeRangeText = recentTransactions.length > 0 ? 'Last 3 months' : 'All time';
+  const timeRangeText = currentMonthTransactions.length > 0 ? 'Current month' : 'All time';
 
   const categoryColors = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
