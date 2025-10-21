@@ -26,7 +26,12 @@ const TrendsControls = ({
 
   return (
     <Card className="p-6">
-      <div className="flex gap-3 justify-end">
+      <div className="flex flex-wrap gap-4 items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold mb-2 dark:text-white">Spending Trends Analysis</h2>
+          <p className="text-muted-foreground">Track your spending patterns over time</p>
+        </div>
+        <div className="flex gap-3">
           <Select value={timeRange} onValueChange={setTimeRange}>
             <SelectTrigger className="w-40">
               <SelectValue />
@@ -53,6 +58,7 @@ const TrendsControls = ({
               ))}
             </SelectContent>
           </Select>
+        </div>
       </div>
     </Card>
   );
