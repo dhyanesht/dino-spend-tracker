@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { storeSchema } from '@/lib/validation';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface Store {
   id: string;
@@ -198,11 +199,10 @@ export const extractStoreName = (description: string): string => {
 
 export const useAddStore = () => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   
   return useMutation({
     mutationFn: async (store: Omit<Store, 'id' | 'created_at' | 'updated_at'>) => {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('You must be logged in to add stores');
       
       // Validate input
@@ -253,6 +253,61 @@ export const useAddStore = () => {
         throw error;
       }
       console.log('New store added successfully:', data);
+      return data;
+    },
+    onSuccess: () => {
+      console.log('Invalidating stores query cache');
+      queryClient.invalidateQueries({ queryKey: ['stores'] });
+    },
+  });
+};
+
+// Batch insert stores
+export const useAddMultipleStores = () => {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  
+  return useMutation({
+    mutationFn: async (stores: Omit<Store, 'id' | 'created_at' | 'updated_at'>[]) => {
+      if (!user) throw new Error('You must be logged in to add stores');
+      
+      console.log('Batch adding store mappings:', stores.length);
+      
+      // Check for existing stores in one query
+      const storeNames = stores.map(s => s.name);
+      const { data: existingStores } = await supabase
+        .from('stores')
+        .select('*')
+        .in('name', storeNames)
+        .eq('user_id', user.id);
+      
+      const existingStoreNames = new Set(existingStores?.map(s => s.name) || []);
+      
+      // Filter out stores that already exist
+      const newStores = stores
+        .filter(s => !existingStoreNames.has(s.name))
+        .map(s => ({
+          name: s.name,
+          category_name: s.category_name,
+          user_id: user.id
+        }));
+      
+      if (newStores.length === 0) {
+        console.log('All stores already exist');
+        return [];
+      }
+      
+      // Batch insert all new stores
+      const { data, error } = await supabase
+        .from('stores')
+        .insert(newStores)
+        .select();
+      
+      if (error) {
+        console.error('Error batch adding stores:', error);
+        throw error;
+      }
+      console.log('Batch added stores successfully:', data?.length);
       return data;
     },
     onSuccess: () => {

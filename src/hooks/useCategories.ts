@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { categorySchema } from '@/lib/validation';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface Category {
   id: string;
@@ -74,11 +75,10 @@ export const useSubcategories = () => {
 
 export const useAddCategory = () => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   
   return useMutation({
     mutationFn: async (category: Omit<Category, 'id' | 'created_at'>) => {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('You must be logged in to add categories');
       
       // Validate input

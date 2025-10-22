@@ -10,7 +10,7 @@ import { Upload, FileText, CheckCircle, XCircle, AlertCircle, Edit2, Save, X } f
 import { Input } from '@/components/ui/input';
 import { useAddMultipleTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
-import { useStores, useAddStore, findBestStoreMatch, extractStoreName } from '@/hooks/useStores';
+import { useStores, useAddMultipleStores, findBestStoreMatch, extractStoreName } from '@/hooks/useStores';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Sparkles } from 'lucide-react';
@@ -155,7 +155,7 @@ const CSVImporter = () => {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const addTransactionsMutation = useAddMultipleTransactions();
-  const addStoreMutation = useAddStore();
+  const addStoresMutation = useAddMultipleStores();
   const { data: categories = [] } = useCategories();
   const { data: stores = [] } = useStores();
   const { toast } = useToast();
@@ -538,22 +538,20 @@ const CSVImporter = () => {
 
     setIsProcessing(true);
     try {
-      // First, add any new store mappings
-      const newStoresToAdd = parseResults.unmatchedStores.filter(store => store.category !== 'Other');
+      // Batch add all new store mappings in one query
+      const newStoresToAdd = parseResults.unmatchedStores
+        .filter(store => store.category !== 'Other')
+        .map(store => ({
+          name: store.name,
+          category_name: store.category,
+        }));
       
-      for (const store of newStoresToAdd) {
-        try {
-          await addStoreMutation.mutateAsync({
-            name: store.name,
-            category_name: store.category,
-          });
-          console.log(`Added store mapping: ${store.name} → ${store.category}`);
-        } catch (error) {
-          console.error(`Failed to add store mapping for ${store.name}:`, error);
-        }
+      if (newStoresToAdd.length > 0) {
+        console.log(`Batch adding ${newStoresToAdd.length} store mappings`);
+        await addStoresMutation.mutateAsync(newStoresToAdd);
       }
 
-      // Then add the transactions
+      // Then add the transactions (already batched)
       const transactionsToAdd = parseResults.success.map(({ storeName, matchedStore, ...transaction }) => transaction);
       await addTransactionsMutation.mutateAsync(transactionsToAdd);
       

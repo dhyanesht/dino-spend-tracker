@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { transactionSchema } from '@/lib/validation';
+import { useAuth } from '@/contexts/AuthContext';
 import { z } from 'zod';
 
 export interface Transaction {
@@ -35,9 +36,12 @@ export const useTransactions = () => {
 
 export const useAddTransaction = () => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   
   return useMutation({
     mutationFn: async (transaction: Omit<Transaction, 'id' | 'created_at'>) => {
+      if (!user) throw new Error('You must be logged in to add transactions');
+      
       // Validate input
       const validated = transactionSchema.parse({
         description: transaction.description,
@@ -46,10 +50,6 @@ export const useAddTransaction = () => {
         category: transaction.category,
         type: transaction.type
       });
-      
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('You must be logged in to add transactions');
       
       console.log('Adding transaction:', validated);
       const { data, error } = await supabase
@@ -81,11 +81,10 @@ export const useAddTransaction = () => {
 
 export const useAddMultipleTransactions = () => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   
   return useMutation({
     mutationFn: async (transactions: Omit<Transaction, 'id' | 'created_at'>[]) => {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('You must be logged in to add transactions');
       
       // Validate all transactions
