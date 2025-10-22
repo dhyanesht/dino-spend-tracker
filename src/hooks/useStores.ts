@@ -56,145 +56,172 @@ export const useStoreByName = (storeName: string) => {
   });
 };
 
-// Improved function for smart store matching
+// Calculate Levenshtein distance between two strings
+const levenshteinDistance = (str1: string, str2: string): number => {
+  const len1 = str1.length;
+  const len2 = str2.length;
+  const matrix: number[][] = [];
+
+  for (let i = 0; i <= len1; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= len2; j++) {
+    matrix[0][j] = j;
+  }
+
+  for (let i = 1; i <= len1; i++) {
+    for (let j = 1; j <= len2; j++) {
+      const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,      // deletion
+        matrix[i][j - 1] + 1,      // insertion
+        matrix[i - 1][j - 1] + cost // substitution
+      );
+    }
+  }
+
+  return matrix[len1][len2];
+};
+
+// Calculate similarity ratio between two strings (0-1)
+const calculateSimilarityRatio = (str1: string, str2: string): number => {
+  const maxLen = Math.max(str1.length, str2.length);
+  if (maxLen === 0) return 1.0;
+  const distance = levenshteinDistance(str1, str2);
+  return 1 - distance / maxLen;
+};
+
+// Improved function for smart store matching with Levenshtein distance
 export const findBestStoreMatch = (description: string, existingStores: Store[]): Store | null => {
-  if (!description || !existingStores.length) {
-    console.log('No description or stores provided for matching');
-    return null;
-  }
+  if (!description || existingStores.length === 0) return null;
+
+  const cleanedDescription = extractStoreName(description);
+  if (!cleanedDescription) return null;
   
-  const cleanDescription = description.toLowerCase().trim();
-  console.log('Trying to match description:', cleanDescription);
-  console.log('Available stores:', existingStores.map(s => s.name));
-  
-  // Extract clean store name from description
-  const extractedName = extractStoreName(description).toLowerCase().trim();
-  console.log('Extracted clean name for matching:', extractedName);
-  
-  // Try exact match with extracted name first
-  const exactMatch = existingStores.find(store => 
-    extractedName === store.name.toLowerCase().trim()
+  // First, try exact match with cleaned description
+  let match = existingStores.find(
+    store => store.name.toUpperCase() === cleanedDescription
   );
-  if (exactMatch) {
-    console.log('Found exact match with extracted name:', exactMatch.name);
-    return exactMatch;
-  }
-  
-  // Try exact match with full description (fallback)
-  const exactDescMatch = existingStores.find(store => 
-    cleanDescription === store.name.toLowerCase().trim()
+  if (match) return match;
+
+  // Try to find if cleaned description contains any existing store name (exact substring)
+  match = existingStores.find(
+    store => {
+      const storeName = store.name.toUpperCase();
+      return cleanedDescription.includes(storeName) && storeName.length > 3;
+    }
   );
-  if (exactDescMatch) {
-    console.log('Found exact match with full description:', exactDescMatch.name);
-    return exactDescMatch;
-  }
-  
-  // Try to find if any store name is contained in the extracted name
-  const containsMatch = existingStores.find(store => {
-    const storeName = store.name.toLowerCase().trim();
-    const matches = extractedName.includes(storeName);
-    if (matches) {
-      console.log(`Extracted name "${extractedName}" contains store name "${storeName}"`);
+  if (match) return match;
+
+  // Try to find if any existing store name contains the cleaned description
+  match = existingStores.find(
+    store => {
+      const storeName = store.name.toUpperCase();
+      return storeName.includes(cleanedDescription) && cleanedDescription.length > 3;
     }
-    return matches;
-  });
-  if (containsMatch) {
-    console.log('Found contains match:', containsMatch.name);
-    return containsMatch;
-  }
-  
-  // Try reverse - if extracted name is contained in any store name
-  const reverseMatch = existingStores.find(store => {
-    const storeName = store.name.toLowerCase().trim();
-    const matches = storeName.includes(extractedName);
-    if (matches) {
-      console.log(`Store name "${storeName}" contains extracted name "${extractedName}"`);
-    }
-    return matches;
-  });
-  if (reverseMatch) {
-    console.log('Found reverse match:', reverseMatch.name);
-    return reverseMatch;
-  }
-  
-  // Try fuzzy matching by removing common words and checking similarity
-  const fuzzyMatch = existingStores.find(store => {
-    const storeName = store.name.toLowerCase().trim();
-    const storeWords = storeName.split(/\s+/).filter(word => word.length > 2);
-    const extractedWords = extractedName.split(/\s+/).filter(word => word.length > 2);
+  );
+  if (match) return match;
+
+  // Advanced fuzzy matching using Levenshtein distance
+  let bestMatch: Store | null = null;
+  let bestSimilarity = 0;
+
+  for (const store of existingStores) {
+    const storeName = store.name.toUpperCase();
     
-    // Check if most significant words match
-    const commonWords = storeWords.filter(word => 
-      extractedWords.some(extractedWord => 
-        extractedWord.includes(word) || word.includes(extractedWord)
-      )
+    // Calculate similarity
+    const similarity = calculateSimilarityRatio(cleanedDescription, storeName);
+    
+    // Also check if the beginning of the strings match well
+    const prefixLength = Math.min(cleanedDescription.length, storeName.length);
+    const prefixSimilarity = calculateSimilarityRatio(
+      cleanedDescription.substring(0, prefixLength),
+      storeName.substring(0, prefixLength)
     );
     
-    const similarity = commonWords.length / Math.max(storeWords.length, extractedWords.length);
-    if (similarity >= 0.7) { // 70% similarity threshold
-      console.log(`Found fuzzy match: "${storeName}" vs "${extractedName}" (similarity: ${similarity})`);
-      return true;
+    // Weighted similarity (give more weight to prefix matching)
+    const weightedSimilarity = (similarity * 0.6) + (prefixSimilarity * 0.4);
+    
+    if (weightedSimilarity > bestSimilarity) {
+      bestSimilarity = weightedSimilarity;
+      bestMatch = store;
     }
-    return false;
-  });
-  if (fuzzyMatch) {
-    console.log('Found fuzzy match:', fuzzyMatch.name);
-    return fuzzyMatch;
   }
-  
-  // Try common store patterns (more flexible matching)
-  const storeKeywords = [
-    'costco', 'walmart', 'target', 'amazon', 'starbucks', 'mcdonalds', 
-    'shell', 'chevron', 'netflix', 'spotify', 'cvs', 'walgreens',
-    'home depot', 'best buy', 'uber', 'lyft', 'safeway', 'kroger',
-    'apple', 'google', 'microsoft', 'paypal', 'shoprite', 'acme'
-  ];
-  
-  for (const keyword of storeKeywords) {
-    if (extractedName.includes(keyword)) {
-      const match = existingStores.find(store => 
-        store.name.toLowerCase().includes(keyword)
+
+  // Return match if similarity is high enough (75% threshold)
+  if (bestSimilarity > 0.75) {
+    return bestMatch;
+  }
+
+  // Keyword-based matching as fallback
+  const keywords = cleanedDescription.split(' ').filter(word => word.length > 3);
+  if (keywords.length > 0) {
+    const keywordMatch = existingStores.find(store => {
+      const storeKeywords = store.name.toUpperCase().split(' ').filter(w => w.length > 3);
+      const matchingKeywords = keywords.filter(keyword => 
+        storeKeywords.some(storeKeyword => 
+          storeKeyword.includes(keyword) || keyword.includes(storeKeyword)
+        )
       );
-      if (match) {
-        console.log(`Found keyword match for "${keyword}":`, match.name);
-        return match;
-      }
-    }
+      // Match if at least 2 keywords match, or 1 keyword for short names
+      return matchingKeywords.length >= Math.min(2, keywords.length);
+    });
+    if (keywordMatch) return keywordMatch;
   }
-  
-  console.log('No match found for:', extractedName);
+
   return null;
 };
 
-// Improved extract store name function
+// Helper function to clean and extract store name from transaction description
 export const extractStoreName = (description: string): string => {
-  if (!description) return '';
+  let cleaned = description.toUpperCase().trim();
   
-  console.log('Extracting store name from:', description);
+  // Remove common payment processor prefixes
+  const prefixes = ['SQ *', 'SQ*', 'PAYPAL *', 'PAYPAL*', 'STRIPE *', 'STRIPE*', 
+                   'VENMO *', 'VENMO*', 'ZELLE *', 'ZELLE*', 'CASHAPP *', 'CASHAPP*',
+                   'TST*', 'TST *', 'MTA*', 'MTA *', 'POS ', 'DEBIT ', 'PURCHASE '];
+  for (const prefix of prefixes) {
+    if (cleaned.startsWith(prefix)) {
+      cleaned = cleaned.substring(prefix.length).trim();
+    }
+  }
   
-  // Clean up common patterns in transaction descriptions
-  let cleanName = description
-    .replace(/\s+/g, ' ') // normalize whitespace
-    .replace(/^(POS\s+|DEBIT\s+|PURCHASE\s+|ACH\s+|CHECK\s+)/i, '') // remove payment prefixes
-    .replace(/\s+\d{2}\/\d{2}\/?\d*.*$/, '') // remove dates at end (MM/DD/YYYY or MM/DD)
-    .replace(/\s+\d{4}-\d{2}-\d{2}.*$/, '') // remove ISO dates
-    .replace(/\s+#\d+.*$/, '') // remove store/reference numbers
-    .replace(/\s+\d{3,}$/, '') // remove trailing long numbers
-    .replace(/\*+\d+$/, '') // remove masked card numbers
-    .trim();
+  // Remove phone numbers (various formats)
+  cleaned = cleaned.replace(/\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/g, '');  // 888-254-7299
+  cleaned = cleaned.replace(/\b\d{10,11}\b/g, '');  // 8552800278
   
-  // Remove state codes and location info at the end - improved pattern
-  cleanName = cleanName
-    .replace(/\s+(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)(\s|$)/i, '') // remove state codes
-    .replace(/\s+(INC|LLC|CORP|CO|LTD)\.?$/i, '') // remove business suffixes
-    .replace(/\s+STORE\s*\d*$/i, '') // remove store numbers
-    .replace(/\s+LOCATION\s*\d*$/i, '') // remove location numbers
-    .trim();
+  // Remove dates and times
+  cleaned = cleaned.replace(/\b\d{1,2}[-/]\d{1,2}[-/]?\d{0,4}\b/g, '');  // 01-16, 12/25
+  cleaned = cleaned.replace(/\b(MON|TUE|WED|THU|FRI|SAT|SUN)\s+\d{1,2}(AM|PM)\b/gi, '');  // FRI 9PM
   
-  // Keep original case but clean up
-  const result = cleanName || description;
-  console.log('Extracted store name:', result);
-  return result;
+  // Remove long transaction IDs (8+ consecutive alphanumeric chars at end)
+  cleaned = cleaned.replace(/[A-Z0-9]{8,}$/g, '');
+  
+  // Remove location/state codes at the end (NY, NJ, CA, etc.) followed by numbers
+  cleaned = cleaned.replace(/\s+[A-Z]{2}\d+.*$/g, '');
+  
+  // Remove common payment suffixes
+  const suffixes = [
+    'WEB SALES', 'WEB SALE', 'ONLINE', 'PAC', 'USD', 'INR', 'EUR', 'GBP',
+    'PURCHASE', 'PYMT', 'PAYMENT', 'DC', 'DEBIT', 'CREDIT', 'INTL'
+  ];
+  for (const suffix of suffixes) {
+    const regex = new RegExp(`\\s+${suffix}\\s*$`, 'i');
+    cleaned = cleaned.replace(regex, '');
+  }
+  
+  // Remove amounts with currency symbols or decimal points
+  cleaned = cleaned.replace(/\$?\d+\.\d{2}\s*(@|AT)?/g, '');
+  cleaned = cleaned.replace(/\d+\.\d+\s*(USD|INR|EUR|GBP)/gi, '');
+  
+  // Remove extra whitespace and trim
+  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+  
+  // Remove trailing asterisks and special characters
+  cleaned = cleaned.replace(/[*#]+$/g, '').trim();
+  
+  // Take first 50 characters as the store name
+  return cleaned.substring(0, 50).trim();
 };
 
 export const useAddStore = () => {

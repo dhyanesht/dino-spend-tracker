@@ -147,15 +147,22 @@ const StoreManager = () => {
   }
 
   return (
-    <Card className="p-6">
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold">Store Category Mappings</h2>
-        <p className="text-slate-600">
-          Manage how stores are automatically categorized. These mappings will be used for future transactions.
-        </p>
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Store Category Mappings</h2>
+        <StoreDialog />
       </div>
 
-      <div className="border rounded-lg">
+      <Tabs defaultValue="mappings" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="mappings">Mappings</TabsTrigger>
+          <TabsTrigger value="duplicates">Find Duplicates</TabsTrigger>
+          <TabsTrigger value="test">Test Matching</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="mappings" className="space-y-4">
+          <Card className="p-6">
+            <div className="border rounded-lg">
         <Table>
           <TableHeader>
             <TableRow>
@@ -320,53 +327,18 @@ const StoreManager = () => {
           </TableBody>
         </Table>
       </div>
+          </Card>
+        </TabsContent>
 
-      {/* Test transaction matching UI */}
-      <div className="my-8 p-4 rounded-lg border bg-card dark:bg-card border-border">
-        <h3 className="font-semibold mb-2">Test Store Matching</h3>
-        <div className="flex flex-col md:flex-row md:items-center gap-2">
-          <input
-            value={testDescription}
-            onChange={e => setTestDescription(e.target.value)}
-            placeholder="Enter a transaction description (e.g. LYFT *RIDE SUN 2AM 8552800278)"
-            className="border px-3 py-2 rounded w-full md:w-96 text-base bg-background dark:bg-background text-foreground"
-          />
-          <Button
-            onClick={handleTestDescription}
-            type="button"
-            variant="default"
-            className="md:ml-2"
-            disabled={!testDescription.trim()}
-          >
-            Check
-          </Button>
-        </div>
+        <TabsContent value="duplicates">
+          <StoreDuplicateFinder />
+        </TabsContent>
 
-        {testResult && (
-          <div className="mt-3 space-y-2">
-            <div>
-              <span className="text-sm text-muted-foreground">Extracted Store Name:</span>
-              <div className="font-mono break-all">{testResult.extracted}</div>
-            </div>
-            <div>
-              <span className="text-sm text-muted-foreground">Matching Store:</span>
-              {testResult.match ? (
-                <div className="font-mono text-green-700 dark:text-green-400">
-                  {testResult.match.name}
-                  {testResult.match.category_name && (
-                    <span className="ml-2 text-xs text-slate-500 dark:text-slate-400">
-                      (Category: {testResult.match.category_name})
-                    </span>
-                  )}
-                </div>
-              ) : (
-                <div className="font-mono text-red-600 dark:text-red-400">No Match Found</div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    </Card>
+        <TabsContent value="test">
+          <TestStoreMatch />
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 };
 
