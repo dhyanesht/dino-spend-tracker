@@ -3,12 +3,14 @@ import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Edit2, Save, X, Delete, ChevronUp, ChevronDown } from 'lucide-react';
 import { useStores, useUpdateStore } from '@/hooks/useStores';
 import { useSubcategories } from '@/hooks/useCategories';
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { extractStoreName, findBestStoreMatch } from '@/hooks/useStores';
+import StoreDuplicateFinder from './StoreDuplicateFinder';
 
 // Custom hook for deleting a store
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -150,14 +152,12 @@ const StoreManager = () => {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Store Category Mappings</h2>
-        <StoreDialog />
       </div>
 
       <Tabs defaultValue="mappings" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="mappings">Mappings</TabsTrigger>
           <TabsTrigger value="duplicates">Find Duplicates</TabsTrigger>
-          <TabsTrigger value="test">Test Matching</TabsTrigger>
         </TabsList>
 
         <TabsContent value="mappings" className="space-y-4">
@@ -332,10 +332,6 @@ const StoreManager = () => {
 
         <TabsContent value="duplicates">
           <StoreDuplicateFinder />
-        </TabsContent>
-
-        <TabsContent value="test">
-          <TestStoreMatch />
         </TabsContent>
       </Tabs>
     </div>
