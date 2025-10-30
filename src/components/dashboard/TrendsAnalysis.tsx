@@ -2,8 +2,11 @@
 import React, { useState } from 'react';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useParentCategories, useSubcategories } from '@/hooks/useCategories';
+import { useCategoryGroups, useGroupMappings } from '@/hooks/useCategoryGroups';
 import { ChartSkeleton } from '@/components/ui/enhanced-skeleton';
 import { NoTrendsEmpty } from '@/components/ui/empty-state';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { 
   getMonthlyTrends, 
   getCategoryComparisonData, 
@@ -13,6 +16,11 @@ import {
   getParentCategoryTableData,
   getBudgetPerformanceData
 } from '@/utils/trendsDataUtils';
+import { 
+  getGroupComparison, 
+  getGroupTableData, 
+  getBudgetPerformanceByGroup 
+} from '@/utils/groupTrendsDataUtils';
 import TrendsControls from './TrendsControls';
 import MonthlyTrendsChart from './MonthlyTrendsChart';
 import CategoryComparisonChart from './CategoryComparisonChart';
@@ -25,12 +33,15 @@ import BudgetPerformanceChart from './BudgetPerformanceChart';
 const TrendsAnalysis = () => {
   const [timeRange, setTimeRange] = useState('6months');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [useGroups, setUseGroups] = useState(false);
   
   const { data: transactions = [], isLoading: transactionsLoading } = useTransactions();
   const { data: parentCategories = [], isLoading: parentCategoriesLoading } = useParentCategories();
   const { data: subcategories = [], isLoading: subcategoriesLoading } = useSubcategories();
+  const { data: groups = [], isLoading: groupsLoading } = useCategoryGroups();
+  const { data: mappings = [], isLoading: mappingsLoading } = useGroupMappings();
 
-  if (transactionsLoading || parentCategoriesLoading || subcategoriesLoading) {
+  if (transactionsLoading || parentCategoriesLoading || subcategoriesLoading || groupsLoading || mappingsLoading) {
     return (
       <div className="space-y-6">
         <ChartSkeleton />
@@ -59,9 +70,19 @@ const TrendsAnalysis = () => {
   const categoryComparison = getCategoryComparisonData(expenseTransactions, allCategories, timeRange, selectedCategory);
   const yearOverYearData = getYearOverYearData(transactionsForAnalysis);
   const insights = calculateSpendingInsights(transactionsForAnalysis);
-  const parentComparison = getParentCategoryComparison(expenseTransactions, parentCategories, subcategories);
-  const { tableData, monthColumns } = getParentCategoryTableData(expenseTransactions, parentCategories, subcategories, 6);
-  const budgetPerformance = getBudgetPerformanceData(expenseTransactions, parentCategories, subcategories);
+  
+  // Get data based on whether we're using groups or parent categories
+  const parentComparison = useGroups && groups.length > 0
+    ? getGroupComparison(expenseTransactions, groups, mappings, allCategories)
+    : getParentCategoryComparison(expenseTransactions, parentCategories, subcategories);
+  
+  const tableDataResult = useGroups && groups.length > 0
+    ? getGroupTableData(expenseTransactions, groups, mappings, allCategories, 6)
+    : getParentCategoryTableData(expenseTransactions, parentCategories, subcategories, 6);
+  
+  const budgetPerformance = useGroups && groups.length > 0
+    ? getBudgetPerformanceByGroup(expenseTransactions, groups, mappings, allCategories)
+    : getBudgetPerformanceData(expenseTransactions, parentCategories, subcategories);
 
   return (
     <div className="space-y-6">
@@ -79,9 +100,22 @@ const TrendsAnalysis = () => {
         categories={allCategories}
       />
 
+      {groups.length > 0 && (
+        <div className="flex items-center space-x-2 p-4 bg-card rounded-lg border">
+          <Switch
+            id="use-groups"
+            checked={useGroups}
+            onCheckedChange={setUseGroups}
+          />
+          <Label htmlFor="use-groups" className="cursor-pointer">
+            View by Category Groups instead of Parent Categories
+          </Label>
+        </div>
+      )}
+
       <ParentCategoryComparison data={parentComparison} />
 
-      <ParentCategoryTable data={tableData} monthColumns={monthColumns} />
+      <ParentCategoryTable data={tableDataResult.tableData} monthColumns={tableDataResult.monthColumns} />
 
       <BudgetPerformanceChart data={budgetPerformance} />
 

@@ -8,6 +8,7 @@ import { useTransactions } from '@/hooks/useTransactions';
 import CategoryGrid from './CategoryGrid';
 import CategoryDialog from './CategoryDialog';
 import StoreManager from './StoreManager';
+import CategoryGroupManager from './CategoryGroupManager';
 import { toast } from 'sonner';
 
 const CategoryManager = () => {
@@ -208,8 +209,9 @@ const CategoryManager = () => {
       />
       
       <Tabs defaultValue="categories" className="w-full">
-        <TabsList>
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="categories">Categories</TabsTrigger>
+          <TabsTrigger value="groups">Category Groups</TabsTrigger>
           <TabsTrigger value="stores">Store Mappings</TabsTrigger>
         </TabsList>
 
@@ -286,6 +288,10 @@ const CategoryManager = () => {
             onAddCategory={handleAddCategory}
             isAdding={addCategory.isPending}
           />
+        </TabsContent>
+
+        <TabsContent value="groups" className="space-y-6">
+          <CategoryGroupManager />
         </TabsContent>
 
         <TabsContent value="stores" className="space-y-6">
