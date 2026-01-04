@@ -13,6 +13,7 @@ import TransactionsList from '@/components/dashboard/TransactionsList';
 import CSVImporter from '@/components/dashboard/CSVImporter';
 import SmartTransactionDialog from '@/components/dashboard/SmartTransactionDialog';
 import BudgetManager from '@/components/dashboard/BudgetManager';
+import SpeechExpenseInput from '@/components/SpeechExpenseInput';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
 
@@ -113,7 +114,13 @@ const Dashboard = () => {
           )}
 
           <TabsContent value="overview" className="space-y-6">
-            <ExpenseOverview setActiveTab={setActiveTab} />
+              <ExpenseOverview setActiveTab={setActiveTab} />
+              {/* Voice expense input */}
+              <SpeechExpenseInput onExpensesParsed={(expenses) => {
+                // TODO: Integrate with your expense add logic
+                console.log('Parsed expenses from speech:', expenses);
+                // You can call your add expense mutation here
+              }} />
           </TabsContent>
 
           <TabsContent value="transactions" className="space-y-6">
