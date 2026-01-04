@@ -1,0 +1,9 @@
+{
+  "type": "record",
+  "name": "Transaction",
+  "fields": [
+    {"name": "date", "type": "string"},
+    {"name": "amount", "type": "double"},
+    {"name": "description", "type": "string"}
+  ]
+}
