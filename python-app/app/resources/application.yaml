@@ -1,0 +1,48 @@
+# LLM Configuration
+LLM:
+  provider: "groq"  # Global provider selection: "ollama", "groq", or "openai"
+  max_retries: 3
+  timeout: 120.0
+
+  providers:
+    ollama:
+      model: "qwen2:0.5b"
+      base_url: "http://localhost:11434"
+      request_timeout: 120.0
+      context_window: 8000
+      temperature: 0.2
+
+    groq:
+      model: "llama-3.1-8b-instant"
+      api_key: "${GROQ_API_KEY}"
+
+    openai:
+      model: "gpt-3.5-turbo"
+      api_key: "${OPENAI_API_KEY}"
+      organization: "${OPENAI_ORG_ID}"
+
+# Database Configuration
+DATABASE:
+  host: "localhost"
+  port: 5432
+  name: "merchant_categorizer"
+  user: "postgres"
+  password: "${DB_PASSWORD}"
+  pool_size: 10
+  max_overflow: 20
+
+# Kafka Configuration
+KAFKA:
+  bootstrap_servers: "localhost:9092"
+  consumer_group: "transaction-categorizer"
+  topics:
+    transactions: "transactions"
+    dlt: "transactions.dlt"
+  auto_offset_reset: "earliest"
+
+# Application Configuration
+APP:
+  host: "0.0.0.0"
+  port: 8000
+  debug: true
+  log_level: "INFO"
