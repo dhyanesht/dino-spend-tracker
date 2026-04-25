@@ -1,112 +1,154 @@
-
 # Personal Spending Tracker
 
-A modern web application for tracking and analyzing personal expenses with intelligent categorization and comprehensive analytics.
+A modern, opinionated web app for tracking personal expenses, budgeting against monthly targets, and understanding spending patterns — built on React + Supabase and powered by AI-assisted categorization.
 
-**URL**: https://lovable.dev/projects/dbf29003-d0bb-4982-b6b2-31deddc617d5
+- **Live (preview):** https://id-preview--dbf29003-d0bb-4982-b6b2-31deddc617d5.lovable.app
+- **Live (published):** https://dino-spend-tracker.lovable.app
+- **Lovable project:** https://lovable.dev/projects/dbf29003-d0bb-4982-b6b2-31deddc617d5
 
-## Current Features & Strengths
+---
 
-### Core Functionality
-- **Smart CSV Import**: Advanced automated categorization system with intelligent store mapping
-- **Comprehensive Dashboard**: Well-organized interface with dedicated sections for Overview, Transactions, Trends, Budget, Categories, and Import
-- **Advanced Categorization**: Two-tier category system (parent/subcategories) with custom colors and budget allocation
-- **Real-time Analytics**: Interactive charts and visualizations using Recharts for spending trends and insights
-- **Store Intelligence**: Smart store name extraction and matching system that learns from transaction descriptions
+## Tech stack
 
-### Technical Architecture
-- **Modern Tech Stack**: Built with React, TypeScript, Tailwind CSS, and shadcn/ui components
-- **Database Integration**: Supabase backend for reliable data persistence with Row Level Security policies
-- **Efficient State Management**: TanStack Query for optimized data fetching, caching, and synchronization
-- **Responsive Design**: Mobile-friendly interface with adaptive grid layouts and touch-optimized interactions
+| Layer | Technology |
+|-------|------------|
+| Framework | React 18 + TypeScript |
+| Build | Vite 5 |
+| Styling | Tailwind CSS v3 + semantic design tokens |
+| UI primitives | shadcn/ui (Radix) |
+| Server state | TanStack Query v5 |
+| Backend | Supabase (PostgreSQL, Auth, Edge Functions, RLS) |
+| AI | Lovable AI Gateway (transaction categorization) |
+| Charts | Recharts |
+| Forms / validation | react-hook-form + Zod |
+| Routing | React Router v6 |
 
-### User Experience
-- **Clean Interface**: Professional design with clear visual hierarchy and intuitive navigation
-- **Tab-based Navigation**: Organized dashboard with easy access to all major features
-- **Visual Feedback**: Color-coded categories, progress indicators, and real-time toast notifications
-- **Bulk Operations**: Efficient CSV import with batch processing and progress tracking
-- **Interactive Charts**: Clickable and filterable data visualizations for better insights
+---
 
-### Data Management
-- **Intelligent Transaction Processing**: Automatic extraction of store names from transaction descriptions
-- **Flexible Category System**: Support for nested categories with customizable colors and budgets
-- **Store Mapping**: Persistent store-to-category mappings that improve over time
-- **Data Validation**: Robust error handling and data validation during import processes
+## Features
 
-### Analytics & Reporting
-- **Spending Trends**: Monthly and categorical spending analysis
-- **Budget Tracking**: Real-time budget vs. actual spending comparisons
-- **Category Insights**: Detailed breakdowns of spending by category and subcategory
-- **Visual Dashboards**: Multiple chart types including bar charts, pie charts, and trend lines
+### 📊 Overview (month-scoped)
+A budgeting-app inspired dashboard that focuses on the **selected month**, not lifetime totals.
 
-## How can I edit this code?
+- **Month picker** to step through any month
+- **Spending Pace** card — actual vs allowed daily pace, days remaining, MoM comparison
+- **Top Categories** with budget progress bars
+- **Category Pie** scoped to the month
+- **Weekly Breakdown** within the month
+- **Recent Transactions** for quick context
 
-There are several ways of editing your application.
+### 💳 Transactions
+- CSV import with column mapping and preview
+- AI categorization via the `categorize-transactions` edge function
+- Persistent **store-mapping intelligence** — the app learns merchant → category from past choices
+- Filters, search, and bulk operations
+- **Client-side pagination** (25 / 50 / 100 rows) for fast rendering of thousands of rows
+- Swipeable rows on mobile, inline edit dialog
 
-**Use Lovable**
+### 🏷️ Categories
+- Two-tier model: **parent → subcategory** (transactions live on subcategories)
+- Custom colors and per-category monthly budgets
+- **Category Groups** — flexible many-to-many overlay for ad-hoc reporting
+- Store mappings & duplicate finder
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/dbf29003-d0bb-4982-b6b2-31deddc617d5) and start prompting.
+### 📈 Trends
+- Monthly trends, year-over-year, parent-category comparison
+- Budget performance chart and trend insights
 
-Changes made via Lovable will be committed automatically to this repo.
+### 🔐 Auth & security
+- Supabase email/password auth, JWT sessions
+- Row Level Security on every table
+- Roles in a separate `user_roles` table accessed via a `has_role()` `SECURITY DEFINER` function with `SET search_path = public`
 
-**Use your preferred IDE**
+---
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## Architecture
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+```text
+┌─────────────────────────┐      ┌──────────────────────────────┐
+│     React SPA (Vite)    │ ───▶ │ Supabase                     │
+│  shadcn/ui + Tailwind   │      │  • PostgreSQL + RLS          │
+│  TanStack Query         │      │  • Auth (GoTrue, JWT)        │
+│  Recharts               │      │  • Edge Functions (Deno)     │
+└─────────────────────────┘      └──────────────────────────────┘
+            │                                   │
+            │                                   ▼
+            │                       ┌──────────────────────────┐
+            └─────────────────────▶ │   Lovable AI Gateway     │
+                                    │ (categorize-transactions)│
+                                    └──────────────────────────┘
+```
 
-Follow these steps:
+---
+
+## Project structure
+
+```
+src/
+  components/
+    dashboard/          # Feature components (Overview, Transactions, Trends, Budget, …)
+      overview/         # Reworked overview cards (MonthPicker, SpendingPaceCard, …)
+    ui/                 # shadcn/ui primitives
+  hooks/                # useTransactions, useCategories, useCategoryGroups, useStores, …
+  pages/                # Index, Auth, Dashboard, NotFound
+  integrations/supabase # Generated client + types
+  contexts/             # AuthContext
+  lib/                  # validation, utils
+supabase/
+  functions/
+    categorize-transactions/   # AI categorization edge function
+    seed-category-groups/      # One-shot category-group seeder
+scaling_up/               # Long-form architecture & product docs
+```
+
+---
+
+## Local development
+
+Prerequisites: Node 18+ and npm (install via [nvm](https://github.com/nvm-sh/nvm)).
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
 git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
 cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Environment variables are read from `.env` (Supabase URL + anon key are committed as publishable values).
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Edge functions
 
-**Use GitHub Codespaces**
+| Function | Purpose |
+|----------|---------|
+| `categorize-transactions` | Calls Lovable AI Gateway to suggest categories for imported rows |
+| `seed-category-groups` | Seeds default category groupings for a new account |
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+---
 
-## What technologies are used for this project?
+## Deployment
 
-This project is built with:
+- **Lovable:** open the project and click **Share → Publish**.
+- **Custom domain:** Project → Settings → Domains → Connect Domain ([docs](https://docs.lovable.dev/tips-tricks/custom-domain)).
 
-- **Frontend**: React 18 with TypeScript
-- **Build Tool**: Vite for fast development and optimized builds
-- **Styling**: Tailwind CSS for utility-first styling
-- **UI Components**: shadcn-ui for consistent, accessible components
-- **Backend**: Supabase for database, authentication, and real-time features
-- **State Management**: TanStack Query for server state management
-- **Charts**: Recharts for data visualization
-- **Icons**: Lucide React for consistent iconography
-- **Routing**: React Router for client-side navigation
+---
 
-## How can I deploy this project?
+## Documentation
 
-Simply open [Lovable](https://lovable.dev/projects/dbf29003-d0bb-4982-b6b2-31deddc617d5) and click on Share -> Publish.
+All long-form docs live in [`scaling_up/`](./scaling_up):
 
-## Can I connect a custom domain to my Lovable project?
+| Document | Purpose |
+|----------|---------|
+| [`enterprise-evaluation.md`](./scaling_up/enterprise-evaluation.md) | Fitness assessment for enterprise use |
+| [`use-cases.md`](./scaling_up/use-cases.md) | Functional use cases |
+| [`requirements.md`](./scaling_up/requirements.md) | Functional & non-functional requirements |
+| [`feature-backlog.md`](./scaling_up/feature-backlog.md) | Prioritized backlog |
+| [`high-level-design.md`](./scaling_up/high-level-design.md) | HLD: components, data flow |
+| [`low-level-design.md`](./scaling_up/low-level-design.md) | LLD: schemas, APIs, core features |
+| [`adr.md`](./scaling_up/adr.md) | **Architecture Decision Records** |
+| [`overview-rework-ideas.md`](./scaling_up/overview-rework-ideas.md) | Design notes for the new Overview |
+| [`monarch-comparison.md`](./scaling_up/monarch-comparison.md) | **Feature gap analysis vs. Monarch Money** |
+| [`README-backend.md`](./scaling_up/README-backend.md) | Backend setup, APIs, deployment |
+| [`README-frontend.md`](./scaling_up/README-frontend.md) | Frontend build & component guide |
+| [`README-docs.md`](./scaling_up/README-docs.md) | Full documentation hub |
 
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+Performance notes: [`PERFORMANCE.md`](./PERFORMANCE.md).
