@@ -1,135 +1,114 @@
-## Goal
 
-Three documentation deliverables:
-1. Refresh `README.md` to reflect the project's current state (overview rework, pagination, category groups, AI categorization, Supabase Cloud, etc.).
-2. Create a dedicated **ADR** document at `scaling_up/adr.md` consolidating all Architecture Decision Records (extracted from `README-docs.md` plus new ADRs for recent decisions).
-3. Create `scaling_up/monarch-comparison.md` — a feature-by-feature comparison vs. Monarch Money with a roadmap to incorporate the gaps.
+# Overlap-Safe CSV Import — Brainstorm + Plan
 
-No application code changes.
+## The Problem
 
----
+Bank/credit-card CSVs are exported as date ranges. When you re-import an overlapping range, you get duplicates. But "duplicate" is fuzzy because:
 
-## 1. README.md refresh
+- **True duplicates**: same date + amount + merchant → already imported.
+- **Legitimate twins**: two $4.75 Starbucks charges on the same day at the same store. Not duplicates.
+- **Boundary churn**: a transaction posted on Mar 15 in batch 1 may have a slightly different date or description on batch 2 (pending → posted, "AMZN Mktp" → "Amazon.com").
+- **Late arrivals**: new Mar 1–15 transactions may exist in batch 2 that weren't in batch 1 (refunds, posted-after-export charges).
 
-Replace the current README with an updated version that includes:
+A naive `WHERE date=X AND amount=Y AND description=Z` filter both **misses fuzzy dupes** and **drops legitimate twins**.
 
-- **Project tagline & live URLs** (preview + published).
-- **Tech stack table** (React 18, TS, Vite, Tailwind, shadcn/ui, TanStack Query, Supabase, Recharts, Lovable AI Gateway).
-- **Feature list, grouped**:
-  - Transactions: CSV import, AI auto-categorization, store-mapping intelligence, paginated table (25/50/100), filters, swipeable rows.
-  - Overview (reworked): month picker, spending pace card, top categories vs budget, weekly breakdown, category pie, recent transactions, MoM comparison.
-  - Categories: parent/subcategory model, custom colors, budgets, category groups.
-  - Trends: monthly trends, YoY chart, category & parent comparisons, budget performance.
-  - Auth & security: Supabase Auth, RLS, `user_roles` + `has_role()` pattern.
-- **Architecture diagram** (ASCII) — SPA → Supabase (DB/Auth/Edge Functions) → Lovable AI.
-- **Project structure** (top-level dirs).
-- **Local dev setup** (clone, `npm i`, `npm run dev`, env vars).
-- **Edge functions** (`categorize-transactions`, `seed-category-groups`).
-- **Deployment** (Lovable publish, custom domain).
-- **Documentation index** linking to every file in `scaling_up/` (including the new `adr.md` and `monarch-comparison.md`).
-- **Performance notes** linking to `PERFORMANCE.md`.
+## Brainstorm — Strategies
 
----
+### 1. Fingerprint hash (fast, exact)
+Compute `sha256(date | amount | normalized_description)` per row, store on the transaction, and reject rows whose fingerprint already exists. Great for byte-identical re-uploads, fails when the bank tweaks the description between exports.
 
-## 2. scaling_up/adr.md
+### 2. Fuzzy match within a date window (recommended core)
+For each incoming row, look for an existing transaction where:
+- `amount` is exactly equal,
+- `date` is within ±N days (default 3),
+- normalized description is similar (Levenshtein/Jaro ≥ 0.85, or shared store token).
 
-A standalone ADR log using the standard format (Status / Context / Decision / Consequences / Alternatives) for each record. Will include:
+If 1 match → duplicate. If 0 → new. If multiple incoming rows match the same existing one → only first is a dupe (handles legitimate twins).
 
-| ADR | Title | Status |
-|-----|-------|--------|
-| 001 | Supabase as backend platform | Accepted |
-| 002 | TanStack Query for server state | Accepted |
-| 003 | shadcn/ui component library | Accepted |
-| 004 | Client-side CSV parsing | Accepted |
-| 005 | Denormalized category references on transactions | Accepted |
-| 006 | Roles in separate `user_roles` table with `has_role()` SECURITY DEFINER | Accepted |
-| 007 | Two-tier category model (parent + subcategory) | Accepted |
-| 008 | Lovable AI Gateway for transaction categorization | Accepted |
-| 009 | Month-scoped Overview (replacing all-time totals) | Accepted |
-| 010 | Client-side pagination for Transactions table | Accepted |
-| 011 | `SET search_path = public` on all SECURITY DEFINER functions | Accepted |
-| 012 | Category groups as a flexible many-to-many overlay | Accepted |
+### 3. Per-import "occurrence counting" (handles twins correctly)
+Group both existing and incoming transactions by `(date, amount, store_token)`. If existing has 1 Starbucks $4.75 on Mar 10 and incoming has 2, import only 1 (the net new one). This is the key insight that makes overlap-safe work without losing real repeated charges.
 
-Each ADR ~10–20 lines with a pros/cons table and alternatives considered. Cross-link from `README-docs.md` (replace inline ADRs with a pointer to `adr.md`).
+### 4. Date-range overlap detection (UX layer)
+Detect min/max date of the upload, query existing transactions in that range, and tell the user: *"This file overlaps Mar 1–15 with 47 existing transactions. 42 already match — 5 look new."* Let them confirm before insert.
 
----
+### 5. Review screen with three buckets
+After parsing, show:
+- **New** (will import) — green, checked by default
+- **Likely duplicate** (skip) — gray, unchecked, with link to existing row
+- **Ambiguous** (manual decision) — yellow, user picks per row
 
-## 3. scaling_up/monarch-comparison.md
+User can flip any row before clicking Import.
 
-Structure:
+### 6. Import batches / undo
+Tag every imported row with an `import_batch_id` so a bad import can be undone in one click. Cheap insurance while we tune the dedup logic.
 
-### A. Monarch feature inventory (sourced from monarch.com / monarchmoney.com)
-Grouped capabilities:
-- Account aggregation (Plaid/Finicity bank, brokerage, crypto, real estate via Zillow, manual accounts)
-- Net worth tracking over time (assets, liabilities, trend chart)
-- Transactions (auto-categorization, rules, splits, merchant cleanup, search, tags, notes, attachments)
-- Budgeting (flex, category, group budgets, rollover)
-- Cash flow reports (income vs expense, sankey)
-- Recurring bills & subscriptions detection
-- Goals (savings, debt payoff, retirement, progress tracking)
-- Investments (holdings, allocation, performance)
-- Collaboration (partner/advisor with shared access, roles)
-- Mobile apps (iOS/Android), web
-- Notifications & alerts
-- Reports, custom dashboards, filters
-- Imports (CSV) and integrations
-- Security (2FA, encryption, read-only Plaid)
+### 7. Description normalization (foundation)
+Reuse existing `extractStoreName` + `cleanTransactionDescription`, plus: lowercase, strip dates/order numbers/`#1234`, collapse whitespace. Store normalized form for matching, keep original for display.
 
-### B. Side-by-side comparison table
+## Recommended Approach
 
-| Feature area | Monarch | Spend Tracker today | Gap |
-|---|---|---|---|
-| Bank aggregation | Plaid/Finicity live sync | Manual + CSV import | Major |
-| Transactions list | ✅ rules, splits, tags, notes, attachments | ✅ list, filters, edit, AI categorize, store mapping; ❌ splits, tags, notes, attachments, rules engine | Medium |
-| Categories | ✅ unlimited, hierarchical, groups | ✅ parent/sub, groups, colors, budgets | Parity |
-| Budgets | ✅ category, group, flex, rollover | ✅ per-category monthly; ❌ rollover, flex, group budgets | Medium |
-| Overview | ✅ month-scoped, pace, MoM | ✅ month picker, pace, MoM, weekly, top categories | Parity |
-| Net worth | ✅ accounts/assets/liabilities over time | ❌ none | Major |
-| Cash flow / income | ✅ sankey, income vs expense | Partial (income tracked, no sankey) | Medium |
-| Recurring bills | ✅ auto-detect, forecast | ❌ none | Major |
-| Goals | ✅ savings/debt with linked accounts | ❌ none | Major |
-| Investments | ✅ holdings, allocation | ❌ none | Major |
-| Collaboration | ✅ partner/advisor | ❌ single user | Major |
-| Mobile apps | ✅ native iOS/Android | Responsive web only | Medium |
-| Reports | ✅ rich, custom | ✅ Trends/YoY/Budget perf | Minor |
-| Notifications | ✅ email/push | ❌ none | Medium |
-| Security | ✅ 2FA, read-only sync | ✅ Supabase Auth + RLS; ❌ 2FA | Medium |
-| Pricing model | Paid SaaS | Self-hosted / personal | n/a |
+Combine **#3 (occurrence counting) + #2 (fuzzy window) + #5 (review screen) + #6 (import batches)**. Skip #1 — fingerprints are too brittle once banks rename merchants.
 
-### C. Gap analysis & how to incorporate
+### Algorithm
 
-For each major gap, a short spec:
+```text
+1. Parse CSV → incoming[] (already done).
+2. Compute upload date range [minD, maxD]. Expand by ±3 days.
+3. Fetch existing transactions in that range (one query).
+4. Build a multimap keyed by (date, amount, normalized_store):
+     existingBuckets[key] = count
+5. For each incoming row:
+   a. key = (date, amount, normalized_store)
+   b. If existingBuckets[key] > 0  → mark DUPLICATE, decrement.
+   c. Else look for fuzzy match within ±3 days, same amount,
+      description similarity ≥ 0.85 → mark LIKELY_DUPLICATE.
+   d. Else → mark NEW.
+6. Show review screen with three buckets + counts.
+7. On confirm: insert only NEW + user-overridden rows, tagged with
+   import_batch_id + import_source.
+```
 
-1. **Account aggregation (Plaid)** — add Supabase Edge Function `plaid-link-token` + `plaid-exchange`; `accounts` and `account_balances` tables; nightly sync via cron. Trade-off: Plaid pricing, PII handling.
-2. **Net worth tracking** — `accounts` table (type: depository/credit/loan/investment/real_estate/manual), daily `account_balance_snapshots`, NetWorth page with stacked area chart.
-3. **Recurring bills detection** — Edge Function scanning transactions for periodicity (amount + cadence + merchant); `recurring_series` table; "Upcoming" widget on Overview.
-4. **Goals** — `goals` table (target_amount, target_date, linked account_ids, type); progress card; contribution suggestions.
-5. **Transaction enhancements** — splits (`transaction_splits`), tags (`tags` + `transaction_tags` join), notes/attachments (Supabase Storage), rules engine (`categorization_rules` table evaluated on insert).
-6. **Budgets v2** — group budgets via `category_groups`, rollover field, flex budget = remaining ÷ remaining days.
-7. **Cash flow Sankey** — Recharts/d3-sankey on Trends tab; income sources → categories → savings.
-8. **Collaboration** — `households` table, invite flow, RLS keyed on household membership instead of user_id; reuse existing `user_roles` pattern with household-scoped role.
-9. **Investments** — phase 1: manual holdings; phase 2: brokerage via Plaid Investments.
-10. **2FA / security hardening** — enable Supabase MFA, add `security` settings page.
-11. **Notifications** — `notification_preferences` table + Edge cron (budget threshold, large transaction, bill due) → email via Resend.
-12. **Mobile** — Capacitor wrapper around the existing React app for iOS/Android.
+### Why this handles all the edge cases
 
-### D. Suggested roadmap (phased)
+- **Mar 1–15 re-upload**: every row hits an existing bucket → all skipped.
+- **Twin Starbucks**: existing has 1, incoming has 2 → 1 dupe + 1 new. Correct.
+- **Mar 15 late posts**: bucket for known charges fills up; truly new charges fall through to NEW.
+- **"AMZN Mktp" vs "Amazon.com"**: same normalized store token → bucket match.
+- **Pending date shift**: ±3 day window catches it.
 
-| Phase | Theme | Items |
-|---|---|---|
-| 1 (1–2 sprints) | Quick wins | Tags, notes, splits, recurring detection, rollover budgets |
-| 2 (2–3 sprints) | Net worth foundation | Accounts table, manual balances, net worth chart, goals |
-| 3 (3–4 sprints) | Aggregation | Plaid integration, auto-sync, investments |
-| 4 (2 sprints) | Collaboration & mobile | Households, sharing, Capacitor mobile build, push notifications |
+## Plan of Work
 
-### E. Out-of-scope / explicit non-goals
-Crypto wallets, tax filing, bill pay execution.
+### Phase 1 — Data + utilities
+- Add `import_batch_id uuid`, `import_source text`, `normalized_description text` columns to `transactions` (migration). All nullable; backfill `normalized_description` once.
+- New `src/lib/transactionDedup.ts`:
+  - `normalizeDescription(raw)` — reuse store extraction + extra cleanup.
+  - `levenshteinRatio(a, b)` — small inline implementation.
+  - `classifyIncoming(incoming, existing, { dateWindowDays:3, similarity:0.85 })` → returns `{ new[], duplicate[], ambiguous[] }`.
+- Unit-friendly pure functions (no React).
 
----
+### Phase 2 — Review UI in CSVImporter
+- After `parseTransactions`, fetch existing rows in the date window and run `classifyIncoming`.
+- New step in the dialog ("Review duplicates") with three collapsible sections + counts and a per-row checkbox.
+- Each "duplicate" row shows the matching existing row inline (date, amount, desc) so the user can verify.
+- "Import N transactions" button only inserts checked rows.
 
-## Files created/modified
+### Phase 3 — Batch tagging + Undo
+- `useAddMultipleTransactions` accepts an optional `importBatchId`; CSVImporter generates one per import.
+- Toast after import: "Imported 42 transactions. Undo." → deletes by `import_batch_id`.
 
-- `README.md` — rewritten
-- `scaling_up/adr.md` — new
-- `scaling_up/monarch-comparison.md` — new
-- `scaling_up/README-docs.md` — small edit: ADR section replaced with link to `adr.md`
+### Phase 4 — Settings
+- Surface dedup knobs in the review screen (advanced): date window (1/3/7 days), similarity threshold (strict/normal/loose). Sensible defaults; most users never touch them.
+
+## Technical Notes
+
+- All matching runs **client-side** after a single scoped query (`WHERE date BETWEEN ... AND user_id = ...`) — fast even for 10k rows.
+- `normalized_description` column lets us index/filter server-side later if volume grows.
+- No CHECK constraints; new columns are nullable with defaults.
+- The migration is additive and safe for existing data.
+
+## Out of Scope (for now)
+
+- Server-side dedup edge function (can revisit if client perf becomes an issue).
+- Cross-account dedup (when we add multiple accounts, dedup will need an `account_id` dimension).
+- ML-based merchant matching — fuzzy + store table is enough.
+
