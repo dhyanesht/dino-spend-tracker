@@ -403,9 +403,64 @@ const CSVImporter = () => {
     console.log(`- ${errors.length} errors`);
     console.log(`- ${unmatchedStores.size} unmatched stores`);
 
-    setParseResults({ 
-      success, 
-      errors, 
+    // ---- Overlap-safe dedup: fetch existing rows in the upload's date range ----
+    let classifiedSuccess: ParsedTransaction[] = success.map(t => ({
+      ...t,
+      dedupStatus: 'new' as DedupStatus,
+      includeInImport: true,
+    }));
+
+    if (success.length > 0) {
+      const dates = success.map(t => t.date).sort();
+      const minDate = new Date(dates[0]);
+      const maxDate = new Date(dates[dates.length - 1]);
+      // Expand window by 3 days on each side to catch boundary shifts
+      minDate.setDate(minDate.getDate() - 3);
+      maxDate.setDate(maxDate.getDate() + 3);
+      const fromStr = minDate.toISOString().split('T')[0];
+      const toStr = maxDate.toISOString().split('T')[0];
+
+      console.log(`Fetching existing transactions ${fromStr} → ${toStr} for dedup`);
+      const { data: existing, error: existingError } = await supabase
+        .from('transactions')
+        .select('id, date, amount, description')
+        .gte('date', fromStr)
+        .lte('date', toStr);
+
+      if (existingError) {
+        console.error('Failed to fetch existing transactions for dedup:', existingError);
+        toast({
+          title: 'Duplicate check skipped',
+          description: 'Could not load existing transactions. Proceed with caution.',
+          variant: 'destructive',
+        });
+      } else {
+        const existingTxns: ExistingTxn[] = (existing || []).map(e => ({
+          id: e.id,
+          date: e.date,
+          amount: Number(e.amount),
+          description: e.description,
+        }));
+
+        const classified = classifyIncoming(success, existingTxns);
+        classifiedSuccess = classified.map((c, i) => ({
+          ...success[i],
+          dedupStatus: c.status,
+          dedupReason: c.reason,
+          dedupMatch: c.match,
+          // Default: import only NEW. User can flip ambiguous/duplicate manually.
+          includeInImport: c.status === 'new',
+        }));
+
+        const dupCount = classified.filter(c => c.status === 'duplicate').length;
+        const ambCount = classified.filter(c => c.status === 'ambiguous').length;
+        console.log(`Dedup: ${dupCount} duplicates, ${ambCount} likely duplicates, ${classified.length - dupCount - ambCount} new`);
+      }
+    }
+
+    setParseResults({
+      success: classifiedSuccess,
+      errors,
       unmatchedStores: Array.from(unmatchedStores.values())
     });
   };
