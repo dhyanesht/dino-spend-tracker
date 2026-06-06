@@ -892,9 +892,77 @@ const CSVImporter = () => {
                     </div>
                   )}
 
+                  {/* Duplicate Review */}
+                  {parseResults.success.length > 0 && (dedupCounts.duplicate > 0 || dedupCounts.ambiguous > 0) && (
+                    <div className="space-y-3 p-4 rounded-lg border bg-muted/40">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <h4 className="font-semibold">Overlap-safe duplicate check</h4>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="default">{dedupCounts.new} new</Badge>
+                          {dedupCounts.ambiguous > 0 && (
+                            <Badge variant="secondary">{dedupCounts.ambiguous} likely duplicate</Badge>
+                          )}
+                          {dedupCounts.duplicate > 0 && (
+                            <Badge variant="outline">{dedupCounts.duplicate} exact duplicate</Badge>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        We compared each row against transactions already in your account within ±3 days. Toggle any row to include or skip it.
+                      </p>
+
+                      {dedupCounts.ambiguous > 0 && (
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => setAllInBucket('ambiguous', true)}>
+                            Include all likely
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => setAllInBucket('ambiguous', false)}>
+                            Skip all likely
+                          </Button>
+                        </div>
+                      )}
+
+                      <div className="max-h-64 overflow-y-auto space-y-1 border rounded">
+                        {parseResults.success
+                          .map((t, i) => ({ t, i }))
+                          .filter(({ t }) => t.dedupStatus !== 'new')
+                          .map(({ t, i }) => (
+                            <div
+                              key={i}
+                              className={`flex items-start gap-3 p-2 border-b text-sm ${
+                                t.dedupStatus === 'duplicate' ? 'bg-muted/30' : 'bg-yellow-50 dark:bg-yellow-950/20'
+                              }`}
+                            >
+                              <Checkbox
+                                checked={!!t.includeInImport}
+                                onCheckedChange={() => toggleIncludeRow(i)}
+                                className="mt-1"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-medium truncate">{t.description}</span>
+                                  <Badge variant={t.dedupStatus === 'duplicate' ? 'outline' : 'secondary'} className="text-xs">
+                                    {t.dedupStatus === 'duplicate' ? 'Exact dup' : 'Likely dup'}
+                                  </Badge>
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {t.date} · ${t.amount.toFixed(2)} · {t.dedupReason}
+                                </div>
+                                {t.dedupMatch && (
+                                  <div className="text-xs text-muted-foreground mt-0.5">
+                                    Matches existing: {t.dedupMatch.date} · ${Number(t.dedupMatch.amount).toFixed(2)} · {t.dedupMatch.description}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
                   {parseResults.success.length > 0 && (
                     <div className="space-y-2">
-                      <h4 className="font-semibold text-green-600">Preview (First 5 transactions):</h4>
+                      <h4 className="font-semibold text-green-600">Preview (First 5 new transactions):</h4>
                       <div className="max-h-40 overflow-y-auto">
                         <div className="grid grid-cols-5 gap-2 text-sm font-medium p-2 bg-gray-100 rounded">
                           <div>Description</div>
@@ -903,7 +971,7 @@ const CSVImporter = () => {
                           <div>Date</div>
                           <div>Type</div>
                         </div>
-                        {parseResults.success.slice(0, 5).map((transaction, index) => (
+                        {parseResults.success.filter(t => t.includeInImport).slice(0, 5).map((transaction, index) => (
                           <div key={index} className="grid grid-cols-5 gap-2 text-sm p-2 border-b">
                             <div className="truncate">{transaction.description}</div>
                             <div>${transaction.amount.toFixed(2)}</div>
@@ -916,13 +984,20 @@ const CSVImporter = () => {
                     </div>
                   )}
 
-                  <Button 
-                    onClick={importTransactions} 
-                    disabled={parseResults.success.length === 0 || isProcessing}
+                  <Button
+                    onClick={importTransactions}
+                    disabled={parseResults.success.filter(t => t.includeInImport).length === 0 || isProcessing}
                     className="w-full"
                   >
-                    {isProcessing ? 'Importing...' : `Import ${parseResults.success.length} Transactions`}
+                    {isProcessing
+                      ? 'Importing...'
+                      : `Import ${parseResults.success.filter(t => t.includeInImport).length} Transactions${
+                          dedupCounts.duplicate + dedupCounts.ambiguous > 0
+                            ? ` (${dedupCounts.duplicate + dedupCounts.ambiguous} flagged as duplicates)`
+                            : ''
+                        }`}
                   </Button>
+
                 </div>
               )}
             </div>
