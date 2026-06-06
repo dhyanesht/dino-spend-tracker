@@ -14,6 +14,8 @@ import { useStores, useAddMultipleStores, findBestStoreMatch, extractStoreName }
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Sparkles } from 'lucide-react';
+import { classifyIncoming, DedupStatus, ExistingTxn } from '@/lib/transactionDedup';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface ParsedTransaction {
   description: string;
