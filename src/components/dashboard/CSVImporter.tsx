@@ -612,13 +612,26 @@ const CSVImporter = () => {
         await addStoresMutation.mutateAsync(newStoresToAdd);
       }
 
-      // Then add the transactions (already batched)
-      const transactionsToAdd = parseResults.success.map(({ storeName, matchedStore, ...transaction }) => transaction);
+      // Filter out rows the user (or auto-dedup) chose to skip
+      const toImport = parseResults.success.filter(t => t.includeInImport !== false);
+      const skippedCount = parseResults.success.length - toImport.length;
+
+      if (toImport.length === 0) {
+        toast({
+          title: 'Nothing to import',
+          description: 'All rows were marked as duplicates. Toggle some on to import.',
+          variant: 'destructive',
+        });
+        setIsProcessing(false);
+        return;
+      }
+
+      const transactionsToAdd = toImport.map(({ storeName, matchedStore, dedupStatus, dedupReason, dedupMatch, includeInImport, ...transaction }) => transaction);
       await addTransactionsMutation.mutateAsync(transactionsToAdd);
-      
+
       toast({
-        title: "Import Successful",
-        description: `Successfully imported ${parseResults.success.length} transactions${newStoresToAdd.length > 0 ? ` and ${newStoresToAdd.length} new store mappings` : ''}`,
+        title: 'Import Successful',
+        description: `Imported ${toImport.length} transactions${skippedCount > 0 ? `, skipped ${skippedCount} duplicate${skippedCount === 1 ? '' : 's'}` : ''}${newStoresToAdd.length > 0 ? `, added ${newStoresToAdd.length} new stores` : ''}.`,
       });
       
       setIsDialogOpen(false);
