@@ -25,6 +25,10 @@ interface ParsedTransaction {
   type: 'expense' | 'income';
   storeName?: string;
   matchedStore?: boolean;
+  dedupStatus?: DedupStatus;
+  dedupReason?: string;
+  dedupMatch?: ExistingTxn;
+  includeInImport?: boolean;
 }
 
 interface UnmatchedStore {
