@@ -234,7 +234,7 @@ const CSVImporter = () => {
     reader.readAsText(file);
   };
 
-  const parseTransactions = () => {
+  const parseTransactions = async () => {
     if (!csvData.length) return;
 
     const { description, amount, category, date, type } = columnMapping;
