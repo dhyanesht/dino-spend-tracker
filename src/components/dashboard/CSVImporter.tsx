@@ -653,6 +653,30 @@ const CSVImporter = () => {
     }
   };
 
+  const toggleIncludeRow = (idx: number) => {
+    if (!parseResults) return;
+    const updated = parseResults.success.map((t, i) =>
+      i === idx ? { ...t, includeInImport: !t.includeInImport } : t
+    );
+    setParseResults({ ...parseResults, success: updated });
+  };
+
+  const setAllInBucket = (status: DedupStatus, include: boolean) => {
+    if (!parseResults) return;
+    const updated = parseResults.success.map(t =>
+      t.dedupStatus === status ? { ...t, includeInImport: include } : t
+    );
+    setParseResults({ ...parseResults, success: updated });
+  };
+
+  const dedupCounts = parseResults
+    ? {
+        new: parseResults.success.filter(t => t.dedupStatus === 'new').length,
+        duplicate: parseResults.success.filter(t => t.dedupStatus === 'duplicate').length,
+        ambiguous: parseResults.success.filter(t => t.dedupStatus === 'ambiguous').length,
+      }
+    : { new: 0, duplicate: 0, ambiguous: 0 };
+
   return (
     <>
       <input
