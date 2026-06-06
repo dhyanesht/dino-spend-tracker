@@ -14,6 +14,8 @@ import { useStores, useAddMultipleStores, findBestStoreMatch, extractStoreName }
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Sparkles } from 'lucide-react';
+import { classifyIncoming, DedupStatus, ExistingTxn } from '@/lib/transactionDedup';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface ParsedTransaction {
   description: string;
@@ -23,6 +25,10 @@ interface ParsedTransaction {
   type: 'expense' | 'income';
   storeName?: string;
   matchedStore?: boolean;
+  dedupStatus?: DedupStatus;
+  dedupReason?: string;
+  dedupMatch?: ExistingTxn;
+  includeInImport?: boolean;
 }
 
 interface UnmatchedStore {
@@ -228,7 +234,7 @@ const CSVImporter = () => {
     reader.readAsText(file);
   };
 
-  const parseTransactions = () => {
+  const parseTransactions = async () => {
     if (!csvData.length) return;
 
     const { description, amount, category, date, type } = columnMapping;
@@ -397,9 +403,64 @@ const CSVImporter = () => {
     console.log(`- ${errors.length} errors`);
     console.log(`- ${unmatchedStores.size} unmatched stores`);
 
-    setParseResults({ 
-      success, 
-      errors, 
+    // ---- Overlap-safe dedup: fetch existing rows in the upload's date range ----
+    let classifiedSuccess: ParsedTransaction[] = success.map(t => ({
+      ...t,
+      dedupStatus: 'new' as DedupStatus,
+      includeInImport: true,
+    }));
+
+    if (success.length > 0) {
+      const dates = success.map(t => t.date).sort();
+      const minDate = new Date(dates[0]);
+      const maxDate = new Date(dates[dates.length - 1]);
+      // Expand window by 3 days on each side to catch boundary shifts
+      minDate.setDate(minDate.getDate() - 3);
+      maxDate.setDate(maxDate.getDate() + 3);
+      const fromStr = minDate.toISOString().split('T')[0];
+      const toStr = maxDate.toISOString().split('T')[0];
+
+      console.log(`Fetching existing transactions ${fromStr} → ${toStr} for dedup`);
+      const { data: existing, error: existingError } = await supabase
+        .from('transactions')
+        .select('id, date, amount, description')
+        .gte('date', fromStr)
+        .lte('date', toStr);
+
+      if (existingError) {
+        console.error('Failed to fetch existing transactions for dedup:', existingError);
+        toast({
+          title: 'Duplicate check skipped',
+          description: 'Could not load existing transactions. Proceed with caution.',
+          variant: 'destructive',
+        });
+      } else {
+        const existingTxns: ExistingTxn[] = (existing || []).map(e => ({
+          id: e.id,
+          date: e.date,
+          amount: Number(e.amount),
+          description: e.description,
+        }));
+
+        const classified = classifyIncoming(success, existingTxns);
+        classifiedSuccess = classified.map((c, i) => ({
+          ...success[i],
+          dedupStatus: c.status,
+          dedupReason: c.reason,
+          dedupMatch: c.match,
+          // Default: import only NEW. User can flip ambiguous/duplicate manually.
+          includeInImport: c.status === 'new',
+        }));
+
+        const dupCount = classified.filter(c => c.status === 'duplicate').length;
+        const ambCount = classified.filter(c => c.status === 'ambiguous').length;
+        console.log(`Dedup: ${dupCount} duplicates, ${ambCount} likely duplicates, ${classified.length - dupCount - ambCount} new`);
+      }
+    }
+
+    setParseResults({
+      success: classifiedSuccess,
+      errors,
       unmatchedStores: Array.from(unmatchedStores.values())
     });
   };
@@ -551,13 +612,26 @@ const CSVImporter = () => {
         await addStoresMutation.mutateAsync(newStoresToAdd);
       }
 
-      // Then add the transactions (already batched)
-      const transactionsToAdd = parseResults.success.map(({ storeName, matchedStore, ...transaction }) => transaction);
+      // Filter out rows the user (or auto-dedup) chose to skip
+      const toImport = parseResults.success.filter(t => t.includeInImport !== false);
+      const skippedCount = parseResults.success.length - toImport.length;
+
+      if (toImport.length === 0) {
+        toast({
+          title: 'Nothing to import',
+          description: 'All rows were marked as duplicates. Toggle some on to import.',
+          variant: 'destructive',
+        });
+        setIsProcessing(false);
+        return;
+      }
+
+      const transactionsToAdd = toImport.map(({ storeName, matchedStore, dedupStatus, dedupReason, dedupMatch, includeInImport, ...transaction }) => transaction);
       await addTransactionsMutation.mutateAsync(transactionsToAdd);
-      
+
       toast({
-        title: "Import Successful",
-        description: `Successfully imported ${parseResults.success.length} transactions${newStoresToAdd.length > 0 ? ` and ${newStoresToAdd.length} new store mappings` : ''}`,
+        title: 'Import Successful',
+        description: `Imported ${toImport.length} transactions${skippedCount > 0 ? `, skipped ${skippedCount} duplicate${skippedCount === 1 ? '' : 's'}` : ''}${newStoresToAdd.length > 0 ? `, added ${newStoresToAdd.length} new stores` : ''}.`,
       });
       
       setIsDialogOpen(false);
@@ -578,6 +652,30 @@ const CSVImporter = () => {
       setIsProcessing(false);
     }
   };
+
+  const toggleIncludeRow = (idx: number) => {
+    if (!parseResults) return;
+    const updated = parseResults.success.map((t, i) =>
+      i === idx ? { ...t, includeInImport: !t.includeInImport } : t
+    );
+    setParseResults({ ...parseResults, success: updated });
+  };
+
+  const setAllInBucket = (status: DedupStatus, include: boolean) => {
+    if (!parseResults) return;
+    const updated = parseResults.success.map(t =>
+      t.dedupStatus === status ? { ...t, includeInImport: include } : t
+    );
+    setParseResults({ ...parseResults, success: updated });
+  };
+
+  const dedupCounts = parseResults
+    ? {
+        new: parseResults.success.filter(t => t.dedupStatus === 'new').length,
+        duplicate: parseResults.success.filter(t => t.dedupStatus === 'duplicate').length,
+        ambiguous: parseResults.success.filter(t => t.dedupStatus === 'ambiguous').length,
+      }
+    : { new: 0, duplicate: 0, ambiguous: 0 };
 
   return (
     <>
@@ -794,9 +892,77 @@ const CSVImporter = () => {
                     </div>
                   )}
 
+                  {/* Duplicate Review */}
+                  {parseResults.success.length > 0 && (dedupCounts.duplicate > 0 || dedupCounts.ambiguous > 0) && (
+                    <div className="space-y-3 p-4 rounded-lg border bg-muted/40">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <h4 className="font-semibold">Overlap-safe duplicate check</h4>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="default">{dedupCounts.new} new</Badge>
+                          {dedupCounts.ambiguous > 0 && (
+                            <Badge variant="secondary">{dedupCounts.ambiguous} likely duplicate</Badge>
+                          )}
+                          {dedupCounts.duplicate > 0 && (
+                            <Badge variant="outline">{dedupCounts.duplicate} exact duplicate</Badge>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        We compared each row against transactions already in your account within ±3 days. Toggle any row to include or skip it.
+                      </p>
+
+                      {dedupCounts.ambiguous > 0 && (
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => setAllInBucket('ambiguous', true)}>
+                            Include all likely
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => setAllInBucket('ambiguous', false)}>
+                            Skip all likely
+                          </Button>
+                        </div>
+                      )}
+
+                      <div className="max-h-64 overflow-y-auto space-y-1 border rounded">
+                        {parseResults.success
+                          .map((t, i) => ({ t, i }))
+                          .filter(({ t }) => t.dedupStatus !== 'new')
+                          .map(({ t, i }) => (
+                            <div
+                              key={i}
+                              className={`flex items-start gap-3 p-2 border-b text-sm ${
+                                t.dedupStatus === 'duplicate' ? 'bg-muted/30' : 'bg-yellow-50 dark:bg-yellow-950/20'
+                              }`}
+                            >
+                              <Checkbox
+                                checked={!!t.includeInImport}
+                                onCheckedChange={() => toggleIncludeRow(i)}
+                                className="mt-1"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-medium truncate">{t.description}</span>
+                                  <Badge variant={t.dedupStatus === 'duplicate' ? 'outline' : 'secondary'} className="text-xs">
+                                    {t.dedupStatus === 'duplicate' ? 'Exact dup' : 'Likely dup'}
+                                  </Badge>
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {t.date} · ${t.amount.toFixed(2)} · {t.dedupReason}
+                                </div>
+                                {t.dedupMatch && (
+                                  <div className="text-xs text-muted-foreground mt-0.5">
+                                    Matches existing: {t.dedupMatch.date} · ${Number(t.dedupMatch.amount).toFixed(2)} · {t.dedupMatch.description}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
                   {parseResults.success.length > 0 && (
                     <div className="space-y-2">
-                      <h4 className="font-semibold text-green-600">Preview (First 5 transactions):</h4>
+                      <h4 className="font-semibold text-green-600">Preview (First 5 new transactions):</h4>
                       <div className="max-h-40 overflow-y-auto">
                         <div className="grid grid-cols-5 gap-2 text-sm font-medium p-2 bg-gray-100 rounded">
                           <div>Description</div>
@@ -805,7 +971,7 @@ const CSVImporter = () => {
                           <div>Date</div>
                           <div>Type</div>
                         </div>
-                        {parseResults.success.slice(0, 5).map((transaction, index) => (
+                        {parseResults.success.filter(t => t.includeInImport).slice(0, 5).map((transaction, index) => (
                           <div key={index} className="grid grid-cols-5 gap-2 text-sm p-2 border-b">
                             <div className="truncate">{transaction.description}</div>
                             <div>${transaction.amount.toFixed(2)}</div>
@@ -818,13 +984,20 @@ const CSVImporter = () => {
                     </div>
                   )}
 
-                  <Button 
-                    onClick={importTransactions} 
-                    disabled={parseResults.success.length === 0 || isProcessing}
+                  <Button
+                    onClick={importTransactions}
+                    disabled={parseResults.success.filter(t => t.includeInImport).length === 0 || isProcessing}
                     className="w-full"
                   >
-                    {isProcessing ? 'Importing...' : `Import ${parseResults.success.length} Transactions`}
+                    {isProcessing
+                      ? 'Importing...'
+                      : `Import ${parseResults.success.filter(t => t.includeInImport).length} Transactions${
+                          dedupCounts.duplicate + dedupCounts.ambiguous > 0
+                            ? ` (${dedupCounts.duplicate + dedupCounts.ambiguous} flagged as duplicates)`
+                            : ''
+                        }`}
                   </Button>
+
                 </div>
               )}
             </div>
