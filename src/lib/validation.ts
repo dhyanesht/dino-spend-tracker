@@ -24,6 +24,9 @@ export const transactionSchema = z.object({
   })
 });
 
+export const accountTypeSchema = z.enum(['checking','savings','credit_card','investment','cash','other']);
+export const accountSchema = z.object({ name: z.string().min(1), type: accountTypeSchema, currency: z.string().default('USD'), is_active: z.boolean().default(true) });
+
 // Category validation schema
 export const categorySchema = z.object({
   name: z.string()
