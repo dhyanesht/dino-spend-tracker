@@ -1,0 +1,95 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { accountSchema, type AccountInput } from '@/lib/validation';
+import { setPrimaryMutations, pickDefaultAccount } from '@/lib/accountOps';
+import type { Database } from '@/integrations/supabase/types';
+
+export type Account = Database['public']['Tables']['accounts']['Row'];
+export type AccountType = Database['public']['Enums']['account_type'];
+
+export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
+  checking: 'Checking', savings: 'Savings', credit_card: 'Credit Card',
+  investment: 'Investment', cash: 'Cash', other: 'Other',
+};
+
+export const useAccounts = () => {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['accounts'],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('accounts').select('*').order('name');
+      if (error) throw error;
+      return data as Account[];
+    },
+  });
+};
+
+export const useDefaultAccount = () => {
+  const { data = [] } = useAccounts();
+  return pickDefaultAccount(data);
+};
+
+const useInvalidate = () => {
+  const qc = useQueryClient();
+  return () => qc.invalidateQueries({ queryKey: ['accounts'] });
+};
+
+export const useAddAccount = () => {
+  const { user } = useAuth();
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (input: AccountInput) => {
+      if (!user) throw new Error('You must be logged in');
+      const v = accountSchema.parse(input);
+      const { data, error } = await supabase.from('accounts').insert({
+        name: v.name, type: v.type, currency: v.currency, is_active: v.is_active,
+        balance: v.balance ?? 0, is_primary: false, user_id: user.id,
+      }).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: invalidate,
+  });
+};
+
+export const useUpdateAccount = () => {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async ({ id, ...patch }: Partial<Omit<Account, 'user_id' | 'is_primary'>> & { id: string }) => {
+      const { error } = await supabase.from('accounts').update(patch).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: invalidate,
+  });
+};
+
+/** Soft delete (is_active=false) so historical transactions keep their account. */
+export const useDeleteAccount = () => {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('accounts').update({ is_active: false, is_primary: false }).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: invalidate,
+  });
+};
+
+export const useSetPrimaryAccount = () => {
+  const { user } = useAuth();
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!user) throw new Error('You must be logged in');
+      for (const op of setPrimaryMutations(user.id, id)) {
+        let q = supabase.from('accounts').update(op.values);
+        for (const [k, v] of Object.entries(op.match)) q = q.eq(k, v);
+        const { error } = await q;
+        if (error) throw error;
+      }
+    },
+    onSuccess: invalidate,
+  });
+};

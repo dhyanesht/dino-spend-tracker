@@ -1,9 +1,58 @@
-export const buildTransferRows = (input: any) => {
-  const pair = 'pair-' + Math.random();
+import { LEGACY_TYPE_BY_NEW } from './transactionMath';
+
+interface Base { amount: number; date: string; description: string; userId: string; status?: 'pending' | 'posted' }
+export interface TransferInput extends Base { sourceAccountId: string; destAccountId: string }
+export interface RefundInput extends Base { originalId: string; originalCategory: string; accountId: string }
+export interface ReimbursementInput extends RefundInput { expectedDate?: string | null }
+
+const uuid = () =>
+  typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+      });
+
+/** Signed transfer pair (locked decision #1): source -amount, dest +amount, shared pair id. */
+export const buildTransferRows = (i: TransferInput) => {
+  if (i.sourceAccountId === i.destAccountId) throw new Error('Transfer source and destination must differ');
+  const transfer_pair_id = uuid();
+  const mag = Math.abs(i.amount);
+  const common = {
+    transaction_type: 'transfer' as const,
+    type: LEGACY_TYPE_BY_NEW.transfer,
+    category: 'Transfer',
+    status: i.status ?? ('posted' as const),
+    date: i.date,
+    description: i.description,
+    user_id: i.userId,
+    transfer_pair_id,
+    linked_transaction_id: null,
+    income_category: null,
+  };
   return [
-    { ...input, transaction_type: 'transfer', amount: -input.amount, account_id: input.sourceAccountId, transfer_pair_id: pair, type: 'expense', status: 'posted', user_id: input.userId },
-    { ...input, transaction_type: 'transfer', amount: input.amount, account_id: input.destAccountId, transfer_pair_id: pair, type: 'expense', status: 'posted', user_id: input.userId },
-  ];
+    { ...common, amount: -mag, account_id: i.sourceAccountId },
+    { ...common, amount: mag, account_id: i.destAccountId },
+  ] as const;
 };
-export const buildRefundRow = (input: any) => ({ transaction_type: 'refund', linked_transaction_id: input.originalId, income_category: 'refund', balance_effect: input.amount, type: 'income', status: 'posted', amount: input.amount, account_id: input.accountId, category: input.originalCategory, date: input.date, description: input.description, user_id: input.userId });
-export const buildReimbursementRow = (input: any) => ({ transaction_type: 'reimbursement', income_category: 'reimbursement', linked_transaction_id: input.originalId, reimbursement_expected_date: input.expectedDate, balance_effect: input.amount, type: 'income', status: 'posted', amount: input.amount, account_id: input.accountId, category: input.originalCategory, date: input.date, description: input.description, user_id: input.userId });
+
+const linkedRow = (kind: 'refund' | 'reimbursement', i: RefundInput) => ({
+  transaction_type: kind,
+  type: LEGACY_TYPE_BY_NEW[kind],
+  income_category: kind,
+  linked_transaction_id: i.originalId,
+  transfer_pair_id: null,
+  category: i.originalCategory,
+  amount: Math.abs(i.amount),
+  account_id: i.accountId,
+  status: i.status ?? ('posted' as const),
+  date: i.date,
+  description: i.description,
+  user_id: i.userId,
+});
+
+export const buildRefundRow = (i: RefundInput) => linkedRow('refund', i);
+export const buildReimbursementRow = (i: ReimbursementInput) => ({
+  ...linkedRow('reimbursement', i),
+  reimbursement_expected_date: i.expectedDate ?? null,
+});
