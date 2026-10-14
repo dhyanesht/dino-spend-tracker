@@ -83,12 +83,11 @@ export const useSetPrimaryAccount = () => {
   return useMutation({
     mutationFn: async (id: string) => {
       if (!user) throw new Error('You must be logged in');
-      for (const op of setPrimaryMutations(user.id, id)) {
-        let q = supabase.from('accounts').update(op.values);
-        for (const [k, v] of Object.entries(op.match)) q = q.eq(k, v);
-        const { error } = await q;
-        if (error) throw error;
-      }
+      const [unset, set] = setPrimaryMutations(user.id, id);
+      const r1 = await supabase.from('accounts').update(unset.values).eq('user_id', user.id).eq('is_primary', true);
+      if (r1.error) throw r1.error;
+      const r2 = await supabase.from('accounts').update(set.values).eq('id', id);
+      if (r2.error) throw r2.error;
     },
     onSuccess: invalidate,
   });
