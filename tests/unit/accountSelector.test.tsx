@@ -1,3 +1,4 @@
+import React from 'react';
 import { it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { AccountSelectorView } from '@/components/dashboard/AccountSelector';
