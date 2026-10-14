@@ -1,6 +1,13 @@
 import { z } from 'zod';
 
-// Transaction validation schema
+const isoDate = /^\d{4}-\d{2}-\d{2}$/;
+
+export const transactionTypeSchema = z.enum(['expense', 'income', 'transfer', 'refund', 'reimbursement']);
+export const transactionStatusSchema = z.enum(['pending', 'posted']);
+export const incomeCategorySchema = z.enum(['salary', 'interest', 'dividends', 'refund', 'reimbursement', 'other']);
+export const accountTypeSchema = z.enum(['checking', 'savings', 'credit_card', 'investment', 'cash', 'other']);
+
+// Transaction validation schema (spec §7.1)
 export const transactionSchema = z.object({
   description: z.string()
     .trim()
@@ -11,21 +18,37 @@ export const transactionSchema = z.object({
     .max(1000000, 'Amount is too large')
     .finite('Amount must be a valid number'),
   date: z.string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format')
+    .regex(isoDate, 'Invalid date format')
     .refine((dateStr) => {
       const date = new Date(dateStr);
-      const now = new Date();
-      const minDate = new Date('1900-01-01');
-      return date <= now && date >= minDate && !isNaN(date.getTime());
+      return !isNaN(date.getTime()) && date <= new Date() && date >= new Date('1900-01-01');
     }, 'Date must be between 1900 and today'),
-  category: z.string().min(1, 'Category is required'),
-  type: z.enum(['expense', 'income'], { 
-    errorMap: () => ({ message: 'Type must be expense or income' })
-  })
-});
+  category: z.string().min(1).optional(),
+  type: z.enum(['expense', 'income']).default('expense'),
+  transaction_type: transactionTypeSchema.default('expense'),
+  account_id: z.string().uuid('Account is required'),
+  status: transactionStatusSchema.default('posted'),
+  linked_transaction_id: z.string().uuid().nullable().optional(),
+  transfer_pair_id: z.string().uuid().nullable().optional(),
+  income_category: incomeCategorySchema.nullable().optional(),
+  reimbursement_expected_date: z.string().regex(isoDate).nullable().optional(),
+}).refine((d) => {
+  if (d.transaction_type === 'expense') return Boolean(d.category);
+  if (d.transaction_type === 'transfer') return Boolean(d.transfer_pair_id);
+  if (d.transaction_type === 'refund' || d.transaction_type === 'reimbursement') return Boolean(d.linked_transaction_id);
+  if (d.transaction_type === 'income') return Boolean(d.income_category);
+  return true;
+}, { message: 'Missing required fields for transaction type' });
 
-export const accountTypeSchema = z.enum(['checking','savings','credit_card','investment','cash','other']);
-export const accountSchema = z.object({ name: z.string().min(1), type: accountTypeSchema, currency: z.string().default('USD'), is_active: z.boolean().default(true) });
+export const accountSchema = z.object({
+  name: z.string().trim().min(1, 'Name is required').max(100),
+  type: accountTypeSchema,
+  balance: z.number().finite().optional(),
+  currency: z.string().trim().length(3).default('USD'),
+  is_active: z.boolean().default(true),
+  is_primary: z.boolean().default(false),
+});
+export type AccountInput = z.infer<typeof accountSchema>;
 
 // Category validation schema
 export const categorySchema = z.object({

@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      accounts: {
+        Row: {
+          balance: number
+          created_at: string
+          currency: string
+          id: string
+          is_active: boolean
+          is_primary: boolean
+          name: string
+          type: Database["public"]["Enums"]["account_type"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          is_active?: boolean
+          is_primary?: boolean
+          name: string
+          type: Database["public"]["Enums"]["account_type"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          is_active?: boolean
+          is_primary?: boolean
+          name?: string
+          type?: Database["public"]["Enums"]["account_type"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           color: string | null
@@ -169,36 +208,72 @@ export type Database = {
       }
       transactions: {
         Row: {
+          account_id: string | null
           amount: number
           category: string
           created_at: string
           date: string
           description: string
           id: string
+          income_category: string | null
+          linked_transaction_id: string | null
+          reimbursement_expected_date: string | null
+          status: string
+          transaction_type: string
+          transfer_pair_id: string | null
           type: string
           user_id: string | null
         }
         Insert: {
+          account_id?: string | null
           amount: number
           category: string
           created_at?: string
           date?: string
           description: string
           id?: string
+          income_category?: string | null
+          linked_transaction_id?: string | null
+          reimbursement_expected_date?: string | null
+          status?: string
+          transaction_type?: string
+          transfer_pair_id?: string | null
           type: string
           user_id?: string | null
         }
         Update: {
+          account_id?: string | null
           amount?: number
           category?: string
           created_at?: string
           date?: string
           description?: string
           id?: string
+          income_category?: string | null
+          linked_transaction_id?: string | null
+          reimbursement_expected_date?: string | null
+          status?: string
+          transaction_type?: string
+          transfer_pair_id?: string | null
           type?: string
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "transactions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_linked_transaction_id_fkey"
+            columns: ["linked_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -233,8 +308,19 @@ export type Database = {
         }
         Returns: boolean
       }
+      transaction_balance_effect: {
+        Args: { r: Database["public"]["Tables"]["transactions"]["Row"] }
+        Returns: number
+      }
     }
     Enums: {
+      account_type:
+        | "checking"
+        | "savings"
+        | "credit_card"
+        | "investment"
+        | "cash"
+        | "other"
       app_role: "admin" | "user"
     }
     CompositeTypes: {
@@ -363,6 +449,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      account_type: [
+        "checking",
+        "savings",
+        "credit_card",
+        "investment",
+        "cash",
+        "other",
+      ],
       app_role: ["admin", "user"],
     },
   },
