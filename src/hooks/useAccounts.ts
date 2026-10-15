@@ -57,8 +57,8 @@ export const useAddAccount = () => {
 export const useUpdateAccount = () => {
   const invalidate = useInvalidate();
   return useMutation({
-    mutationFn: async ({ id, ...patch }: Partial<Omit<Account, 'user_id' | 'is_primary'>> & { id: string }) => {
-      const { error } = await supabase.from('accounts').update(patch).eq('id', id);
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Omit<Account, 'user_id' | 'is_primary' | 'id'>> }) => {
+      const { error } = await supabase.from('accounts').update(updates).eq('id', id);
       if (error) throw error;
     },
     onSuccess: invalidate,

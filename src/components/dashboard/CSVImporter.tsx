@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { useAddMultipleTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
 import { useStores, useAddMultipleStores, findBestStoreMatch, extractStoreName } from '@/hooks/useStores';
+import { useAccounts } from '@/hooks/useAccounts';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Sparkles } from 'lucide-react';
@@ -29,6 +30,9 @@ interface ParsedTransaction {
   dedupReason?: string;
   dedupMatch?: ExistingTxn;
   includeInImport?: boolean;
+  account_id?: string | null;
+  transaction_type?: 'expense' | 'income' | 'transfer' | 'refund' | 'reimbursement';
+  status?: 'pending' | 'posted';
 }
 
 interface UnmatchedStore {
@@ -43,6 +47,8 @@ interface ColumnMapping {
   category: number | null;
   date: number | null;
   type: number | null;
+  account: number | null;
+  status: number | null;
 }
 
 // Payment providers to remove from transaction descriptions
@@ -80,11 +86,13 @@ const autoDetectColumns = (headerRow: string[]): ColumnMapping => {
     category: null,
     date: null,
     type: null,
+    account: null,
+    status: null,
   };
 
   headerRow.forEach((header, index) => {
     const normalized = header.toLowerCase().trim();
-    
+
     // Description column patterns
     if (mapping.description === null && (
       normalized.includes('description') ||
@@ -95,7 +103,7 @@ const autoDetectColumns = (headerRow: string[]): ColumnMapping => {
     )) {
       mapping.description = index;
     }
-    
+
     // Amount column patterns
     if (mapping.amount === null && (
       normalized.includes('amount') ||
@@ -107,7 +115,7 @@ const autoDetectColumns = (headerRow: string[]): ColumnMapping => {
     )) {
       mapping.amount = index;
     }
-    
+
     // Date column patterns
     if (mapping.date === null && (
       normalized.includes('date') ||
@@ -117,7 +125,7 @@ const autoDetectColumns = (headerRow: string[]): ColumnMapping => {
     )) {
       mapping.date = index;
     }
-    
+
     // Category column patterns
     if (mapping.category === null && (
       normalized.includes('category') ||
@@ -125,7 +133,27 @@ const autoDetectColumns = (headerRow: string[]): ColumnMapping => {
     )) {
       mapping.category = index;
     }
-    
+
+    // Account column patterns
+    if (mapping.account === null && (
+      normalized.includes('account') ||
+      normalized.includes('bank') ||
+      normalized.includes('card') ||
+      normalized.includes('wallet')
+    )) {
+      mapping.account = index;
+    }
+
+    // Status column patterns
+    if (mapping.status === null && (
+      normalized.includes('status') ||
+      normalized.includes('state') ||
+      normalized.includes('pending') ||
+      normalized.includes('cleared')
+    )) {
+      mapping.status = index;
+    }
+
     // Transaction type column patterns
     if (mapping.type === null && (
       normalized.includes('transaction type') ||
@@ -148,6 +176,8 @@ const CSVImporter = () => {
     category: null,
     date: null,
     type: null,
+    account: null,
+    status: null,
   });
   const [parseResults, setParseResults] = useState<{
     success: ParsedTransaction[];
@@ -158,12 +188,13 @@ const CSVImporter = () => {
   const [editingStore, setEditingStore] = useState<string | null>(null);
   const [editCategory, setEditCategory] = useState('');
   const [isAiCategorizing, setIsAiCategorizing] = useState(false);
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const addTransactionsMutation = useAddMultipleTransactions();
   const addStoresMutation = useAddMultipleStores();
   const { data: categories = [] } = useCategories();
   const { data: stores = [] } = useStores();
+  const { data: accounts = [] } = useAccounts();
   const { toast } = useToast();
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -234,11 +265,11 @@ const CSVImporter = () => {
     reader.readAsText(file);
   };
 
-  const parseTransactions = async () => {
+const parseTransactions = async () => {
     if (!csvData.length) return;
 
-    const { description, amount, category, date, type } = columnMapping;
-    
+    const { description, amount, category, date, type, account, status } = columnMapping;
+
     if (description === null || amount === null || date === null) {
       toast({
         title: "Missing Required Mappings",
@@ -266,6 +297,8 @@ const CSVImporter = () => {
         const dateStr = row[date]?.trim();
         const categoryStr = category !== null ? row[category]?.trim() : '';
         const typeStr = type !== null ? row[type]?.trim().toLowerCase() : 'expense';
+        const accountStr = account !== null ? row[account]?.trim() : '';
+        const statusStr = status !== null ? row[status]?.trim().toLowerCase() : 'posted';
 
         if (!desc || !amountStr || !dateStr) {
           errors.push({
@@ -283,12 +316,6 @@ const CSVImporter = () => {
             error: `Invalid amount: "${amountStr}"`,
             data: row
           });
-          return;
-        }
-
-        // Skip negative transactions (credit card payments)
-        if (parsedAmount < 0) {
-          console.log(`Skipping negative transaction (payment): ${parsedAmount}`);
           return;
         }
 
@@ -318,12 +345,12 @@ const CSVImporter = () => {
 
         // Enhanced store matching and categorization
         console.log(`Processing row ${index + 1} with description: "${desc}"`);
-        
+
         const extractedStoreName = extractStoreName(desc);
         console.log(`Extracted store name: "${extractedStoreName}"`);
-        
+
         const matchedStore = findBestStoreMatch(desc, stores);
-        
+
         let finalCategory = 'Other';
         let storeName = extractedStoreName;
         let matchedStoreFlag = false;
@@ -353,7 +380,7 @@ const CSVImporter = () => {
           }
         } else if (categoryStr) {
           // Manual category provided in CSV
-          const foundCategory = categories.find(cat => 
+          const foundCategory = categories.find(cat =>
             cat.name.toLowerCase() === categoryStr.toLowerCase()
           );
           finalCategory = foundCategory ? foundCategory.name : 'Other';
@@ -373,10 +400,40 @@ const CSVImporter = () => {
           }
         }
 
-        // Determine transaction type
+        // Resolve account from CSV column (name) or fall back to first active account
+        let resolvedAccountId: string | null = null;
+        if (accountStr) {
+          const matchedAccount = accounts.find(a => a.name.toLowerCase() === accountStr.toLowerCase());
+          if (matchedAccount) {
+            resolvedAccountId = matchedAccount.id;
+          }
+        }
+        if (!resolvedAccountId && accounts.length > 0) {
+          const active = accounts.find(a => a.is_active);
+          resolvedAccountId = (active ?? accounts[0]).id;
+        }
+
+        // Determine transaction type: detect transfer / refund / reimbursement
         let finalType: 'expense' | 'income' = 'expense';
+        let finalTransactionType: ParsedTransaction['transaction_type'] = 'expense';
         if (typeStr.includes('income') || typeStr.includes('credit') || parsedAmount < 0) {
           finalType = 'income';
+          finalTransactionType = 'income';
+        }
+        if (typeStr.includes('transfer')) {
+          finalTransactionType = 'transfer';
+        }
+        if (typeStr.includes('refund')) {
+          finalTransactionType = 'refund';
+        }
+        if (typeStr.includes('reimbursement')) {
+          finalTransactionType = 'reimbursement';
+        }
+
+        // Determine status
+        let finalStatus: 'pending' | 'posted' = 'posted';
+        if (statusStr.includes('pending')) {
+          finalStatus = 'pending';
         }
 
         success.push({
@@ -387,6 +444,9 @@ const CSVImporter = () => {
           type: finalType,
           storeName,
           matchedStore: matchedStoreFlag,
+          account_id: resolvedAccountId,
+          transaction_type: finalTransactionType,
+          status: finalStatus,
         });
 
       } catch (error) {
@@ -594,7 +654,7 @@ const CSVImporter = () => {
     }
   };
 
-  const importTransactions = async () => {
+const importTransactions = async () => {
     if (!parseResults?.success.length) return;
 
     setIsProcessing(true);
@@ -606,7 +666,7 @@ const CSVImporter = () => {
           name: store.name,
           category_name: store.category,
         }));
-      
+
       if (newStoresToAdd.length > 0) {
         console.log(`Batch adding ${newStoresToAdd.length} store mappings`);
         await addStoresMutation.mutateAsync(newStoresToAdd);
@@ -626,7 +686,11 @@ const CSVImporter = () => {
         return;
       }
 
-      const transactionsToAdd = toImport.map(({ storeName, matchedStore, dedupStatus, dedupReason, dedupMatch, includeInImport, ...transaction }) => transaction);
+      const transactionsToAdd = toImport.map(({ storeName, matchedStore, dedupStatus, dedupReason, dedupMatch, includeInImport, ...transaction }) => ({
+        ...transaction,
+        transaction_type: transaction.transaction_type ?? 'expense',
+        status: transaction.status ?? 'posted',
+      }));
       await addTransactionsMutation.mutateAsync(transactionsToAdd);
 
       toast({
@@ -706,16 +770,16 @@ const CSVImporter = () => {
           {csvData.length > 0 && (
             <div className="space-y-6">
               {/* Column Mapping */}
-              <div className="space-y-4">
+<div className="space-y-4">
                 <h3 className="text-lg font-semibold">Map CSV Columns</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>Description Column *</Label>
-                    <Select 
-                      value={columnMapping.description?.toString() || 'none'} 
-                      onValueChange={(value) => setColumnMapping(prev => ({ 
-                        ...prev, 
-                        description: value === 'none' ? null : parseInt(value) 
+                    <Select
+                      value={columnMapping.description?.toString() || 'none'}
+                      onValueChange={(value) => setColumnMapping(prev => ({
+                        ...prev,
+                        description: value === 'none' ? null : parseInt(value)
                       }))}
                     >
                       <SelectTrigger>
@@ -731,14 +795,14 @@ const CSVImporter = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  
+
                   <div>
                     <Label>Amount Column *</Label>
-                    <Select 
-                      value={columnMapping.amount?.toString() || 'none'} 
-                      onValueChange={(value) => setColumnMapping(prev => ({ 
-                        ...prev, 
-                        amount: value === 'none' ? null : parseInt(value) 
+                    <Select
+                      value={columnMapping.amount?.toString() || 'none'}
+                      onValueChange={(value) => setColumnMapping(prev => ({
+                        ...prev,
+                        amount: value === 'none' ? null : parseInt(value)
                       }))}
                     >
                       <SelectTrigger>
@@ -754,14 +818,14 @@ const CSVImporter = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  
+
                   <div>
                     <Label>Date Column *</Label>
-                    <Select 
-                      value={columnMapping.date?.toString() || 'none'} 
-                      onValueChange={(value) => setColumnMapping(prev => ({ 
-                        ...prev, 
-                        date: value === 'none' ? null : parseInt(value) 
+                    <Select
+                      value={columnMapping.date?.toString() || 'none'}
+                      onValueChange={(value) => setColumnMapping(prev => ({
+                        ...prev,
+                        date: value === 'none' ? null : parseInt(value)
                       }))}
                     >
                       <SelectTrigger>
@@ -777,14 +841,14 @@ const CSVImporter = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  
+
                   <div>
                     <Label>Category Column (Optional)</Label>
-                    <Select 
-                      value={columnMapping.category?.toString() || 'none'} 
-                      onValueChange={(value) => setColumnMapping(prev => ({ 
-                        ...prev, 
-                        category: value === 'none' ? null : parseInt(value) 
+                    <Select
+                      value={columnMapping.category?.toString() || 'none'}
+                      onValueChange={(value) => setColumnMapping(prev => ({
+                        ...prev,
+                        category: value === 'none' ? null : parseInt(value)
                       }))}
                     >
                       <SelectTrigger>
@@ -800,8 +864,54 @@ const CSVImporter = () => {
                       </SelectContent>
                     </Select>
                   </div>
+
+                  <div>
+                    <Label>Account Column (Optional)</Label>
+                    <Select
+                      value={columnMapping.account?.toString() || 'none'}
+                      onValueChange={(value) => setColumnMapping(prev => ({
+                        ...prev,
+                        account: value === 'none' ? null : parseInt(value)
+                      }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select column (optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None (use default)</SelectItem>
+                        {csvData[0]?.map((header, index) => (
+                          <SelectItem key={index} value={index.toString()}>
+                            Column {index + 1}: {header || `Column ${index + 1}`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>Status Column (Optional)</Label>
+                    <Select
+                      value={columnMapping.status?.toString() || 'none'}
+                      onValueChange={(value) => setColumnMapping(prev => ({
+                        ...prev,
+                        status: value === 'none' ? null : parseInt(value)
+                      }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select column (optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None (default posted)</SelectItem>
+                        {csvData[0]?.map((header, index) => (
+                          <SelectItem key={index} value={index.toString()}>
+                            Column {index + 1}: {header || `Column ${index + 1}`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                
+
                 <Button onClick={parseTransactions} className="w-full">
                   Parse Transactions
                 </Button>
@@ -964,20 +1074,22 @@ const CSVImporter = () => {
                     <div className="space-y-2">
                       <h4 className="font-semibold text-green-600">Preview (First 5 new transactions):</h4>
                       <div className="max-h-40 overflow-y-auto">
-                        <div className="grid grid-cols-5 gap-2 text-sm font-medium p-2 bg-gray-100 rounded">
+                        <div className="grid grid-cols-6 gap-2 text-sm font-medium p-2 bg-gray-100 rounded">
                           <div>Description</div>
                           <div>Amount</div>
                           <div>Category</div>
                           <div>Date</div>
                           <div>Type</div>
+                          <div>Status</div>
                         </div>
                         {parseResults.success.filter(t => t.includeInImport).slice(0, 5).map((transaction, index) => (
-                          <div key={index} className="grid grid-cols-5 gap-2 text-sm p-2 border-b">
+                          <div key={index} className="grid grid-cols-6 gap-2 text-sm p-2 border-b">
                             <div className="truncate">{transaction.description}</div>
                             <div>${transaction.amount.toFixed(2)}</div>
                             <div className="truncate">{transaction.category}</div>
                             <div>{transaction.date}</div>
-                            <div className="capitalize">{transaction.type}</div>
+                            <div className="capitalize">{transaction.transaction_type ?? transaction.type}</div>
+                            <div className="capitalize">{transaction.status ?? 'posted'}</div>
                           </div>
                         ))}
                       </div>

@@ -5,6 +5,7 @@ import { Plus, ArrowLeft, Download, Upload } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCategories, useParentCategories, useSubcategories, useAddCategory, useDeleteCategory, useUpdateCategory } from '@/hooks/useCategories';
 import { useTransactions } from '@/hooks/useTransactions';
+import { isExpense } from '@/lib/transactionMath';
 import CategoryGrid from './CategoryGrid';
 import CategoryDialog from './CategoryDialog';
 import StoreManager from './StoreManager';
@@ -33,7 +34,7 @@ const CategoryManager = () => {
 
   const getSpentAmount = (categoryName: string) => {
     return transactions
-      .filter(t => t.category === categoryName && t.type === 'expense')
+      .filter(t => t.category === categoryName && isExpense(t))
       .reduce((sum, t) => sum + Number(t.amount), 0);
   };
 

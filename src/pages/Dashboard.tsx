@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Upload, TrendingUp, PieChart, Calendar, List, DollarSign } from 'lucide-react';
+import { Upload, TrendingUp, PieChart, Calendar, List, DollarSign, FileBarChart, Wallet } from 'lucide-react';
 import { BottomTabBar } from '@/components/ui/bottom-tab-bar';
 import DashboardHeaderActions from "@/components/dashboard/DashboardHeaderActions";
 import { useMobile } from '@/hooks/useMobile';
@@ -13,6 +13,9 @@ import TransactionsList from '@/components/dashboard/TransactionsList';
 import CSVImporter from '@/components/dashboard/CSVImporter';
 import SmartTransactionDialog from '@/components/dashboard/SmartTransactionDialog';
 import BudgetManager from '@/components/dashboard/BudgetManager';
+import { RefundReport } from '@/components/dashboard/RefundReport';
+import { ReimbursementReport } from '@/components/dashboard/ReimbursementReport';
+import { AccountsManager } from '@/components/dashboard/AccountsManager';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
 
@@ -77,7 +80,7 @@ const Dashboard = () => {
       <main className={`max-w-7xl mx-auto px-6 py-8 ${isMobile ? 'pb-32' : ''}`}>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           {/* Desktop Tab List - Hidden on Mobile */}
-          <TabsList className={`grid w-full grid-cols-6 mb-8 ${isMobile ? 'hidden' : ''}`}>
+          <TabsList className={`grid w-full grid-cols-8 mb-8 ${isMobile ? 'hidden' : ''}`}>
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <PieChart className="w-4 h-4" />
               Overview
@@ -94,9 +97,17 @@ const Dashboard = () => {
               <DollarSign className="w-4 h-4" />
               Budget
             </TabsTrigger>
+            <TabsTrigger value="reports" className="flex items-center gap-2">
+              <FileBarChart className="w-4 h-4" />
+              Reports
+            </TabsTrigger>
             <TabsTrigger value="categories" className="flex items-center gap-2">
               <Calendar className="w-4 h-4" />
               Categories
+            </TabsTrigger>
+            <TabsTrigger value="accounts" className="flex items-center gap-2">
+              <Wallet className="w-4 h-4" />
+              Accounts
             </TabsTrigger>
             <TabsTrigger value="import" className="flex items-center gap-2">
               <Upload className="w-4 h-4" />
@@ -130,6 +141,17 @@ const Dashboard = () => {
 
           <TabsContent value="categories" className="space-y-6">
             <CategoryManager />
+          </TabsContent>
+
+          <TabsContent value="accounts" className="space-y-6">
+            <AccountsManager />
+          </TabsContent>
+
+          <TabsContent value="reports" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <RefundReport />
+              <ReimbursementReport />
+            </div>
           </TabsContent>
 
           <TabsContent value="import" className="space-y-6">

@@ -3,23 +3,24 @@ import React, { useState } from 'react';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useParentCategories, useSubcategories } from '@/hooks/useCategories';
 import { useCategoryGroups, useGroupMappings } from '@/hooks/useCategoryGroups';
+import { isExpense, withPendingAsPosted } from '@/lib/transactionMath';
 import { ChartSkeleton } from '@/components/ui/enhanced-skeleton';
 import { NoTrendsEmpty } from '@/components/ui/empty-state';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { 
-  getMonthlyTrends, 
-  getCategoryComparisonData, 
-  getYearOverYearData, 
+import {
+  getMonthlyTrends,
+  getCategoryComparisonData,
+  getYearOverYearData,
   calculateSpendingInsights,
   getParentCategoryComparison,
   getParentCategoryTableData,
   getBudgetPerformanceData
 } from '@/utils/trendsDataUtils';
-import { 
-  getGroupComparison, 
-  getGroupTableData, 
-  getBudgetPerformanceByGroup 
+import {
+  getGroupComparison,
+  getGroupTableData,
+  getBudgetPerformanceByGroup
 } from '@/utils/groupTrendsDataUtils';
 import TrendsControls from './TrendsControls';
 import MonthlyTrendsChart from './MonthlyTrendsChart';
@@ -34,7 +35,7 @@ const TrendsAnalysis = () => {
   const [timeRange, setTimeRange] = useState('6months');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [useGroups, setUseGroups] = useState(false);
-  
+
   const { data: transactions = [], isLoading: transactionsLoading } = useTransactions();
   const { data: parentCategories = [], isLoading: parentCategoriesLoading } = useParentCategories();
   const { data: subcategories = [], isLoading: subcategoriesLoading } = useSubcategories();
@@ -55,7 +56,8 @@ const TrendsAnalysis = () => {
     );
   }
 
-  const expenseTransactions = transactions.filter(t => t.type === 'expense');
+  // Exclude transfers/refunds/reimbursements/pending from trend analysis.
+  const expenseTransactions = transactions.filter((t) => isExpense(t));
 
   if (expenseTransactions.length < 3) {
     return <NoTrendsEmpty />;
@@ -70,16 +72,16 @@ const TrendsAnalysis = () => {
   const categoryComparison = getCategoryComparisonData(expenseTransactions, allCategories, timeRange, selectedCategory);
   const yearOverYearData = getYearOverYearData(transactionsForAnalysis);
   const insights = calculateSpendingInsights(transactionsForAnalysis);
-  
+
   // Get data based on whether we're using groups or parent categories
   const parentComparison = useGroups && groups.length > 0
     ? getGroupComparison(expenseTransactions, groups, mappings, allCategories)
     : getParentCategoryComparison(expenseTransactions, parentCategories, subcategories);
-  
+
   const tableDataResult = useGroups && groups.length > 0
     ? getGroupTableData(expenseTransactions, groups, mappings, allCategories, 6)
     : getParentCategoryTableData(expenseTransactions, parentCategories, subcategories, 6);
-  
+
   const budgetPerformance = useGroups && groups.length > 0
     ? getBudgetPerformanceByGroup(expenseTransactions, groups, mappings, allCategories)
     : getBudgetPerformanceData(expenseTransactions, parentCategories, subcategories);

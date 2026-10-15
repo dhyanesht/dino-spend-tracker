@@ -14,9 +14,10 @@ interface TransactionTableProps {
   selectedTransactions: string[];
   onSelectAll: (checked: boolean) => void;
   onSelectOne: (id: string, checked: boolean) => void;
-  onDelete: (ids: string[]) => Promise<any>;
+  onDelete: (ids: string[]) => Promise<unknown>;
   getCategoryColor: (category: string) => string;
   getParentCategory: (category: string) => string | null;
+  getAccountName: (accountId: string | null | undefined) => string;
   isAllSelected: boolean;
   isSomeSelected: boolean;
 }
@@ -32,6 +33,7 @@ const TransactionTable = ({
   onDelete,
   getCategoryColor,
   getParentCategory,
+  getAccountName,
   isAllSelected,
   isSomeSelected,
 }: TransactionTableProps) => {
@@ -65,24 +67,26 @@ const TransactionTable = ({
       <div className="border rounded-lg overflow-x-auto">
         <Table>
           {!isMobile && (
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12 px-2">
-                  <Checkbox
-                    checked={isAllSelected ? true : isSomeSelected ? 'indeterminate' : false}
-                    onCheckedChange={(checked) => onSelectAll(!!checked)}
-                    aria-label="Select all"
-                  />
-                </TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Parent Category</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead className="w-16">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
+<TableHeader>
+                <TableRow>
+                  <TableHead className="w-12 px-2">
+                    <Checkbox
+                      checked={isAllSelected ? true : isSomeSelected ? 'indeterminate' : false}
+                      onCheckedChange={(checked) => onSelectAll(!!checked)}
+                      aria-label="Select all"
+                    />
+                  </TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Parent Category</TableHead>
+                  <TableHead>Account</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead className="w-16">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
           )}
           <TableBody>
             {paginatedTransactions.length > 0 ? (
@@ -105,13 +109,14 @@ const TransactionTable = ({
                     onDelete={onDelete}
                     getCategoryColor={getCategoryColor}
                     getParentCategory={getParentCategory}
+                    getAccountName={getAccountName}
                     isReadOnly={false}
                   />
                 )
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={isMobile ? 1 : 8} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={isMobile ? 1 : 10} className="text-center py-8 text-muted-foreground">
                   No transactions found matching your filters
                 </TableCell>
               </TableRow>

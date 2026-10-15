@@ -2,15 +2,8 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
-
-interface Transaction {
-  id: string;
-  date: string;
-  description: string;
-  amount: number;
-  category: string;
-  type: string;
-}
+import { Transaction } from '@/hooks/useTransactions';
+import { isExpense, isTrueIncome } from '@/lib/transactionMath';
 
 interface RecentTransactionsProps {
   transactions: Transaction[];
@@ -40,8 +33,8 @@ const RecentTransactions = ({ transactions, onViewAll }: RecentTransactionsProps
                 {' · '}{t.category}
               </p>
             </div>
-            <span className={`font-semibold text-sm ml-4 ${t.type === 'income' ? 'text-green-600 dark:text-green-400' : ''}`}>
-              {t.type === 'income' ? '+' : '-'}${Number(t.amount).toFixed(2)}
+            <span className={`font-semibold text-sm ml-4 ${isTrueIncome(t) ? 'text-green-600 dark:text-green-400' : ''}`}>
+              {isTrueIncome(t) ? '+' : (isExpense(t) ? '-' : '')}${Number(t.amount).toFixed(2)}
             </span>
           </div>
         ))}

@@ -4,9 +4,12 @@ import { useTransactions, type Transaction } from "@/hooks/useTransactions";
 import { isReimbursement } from "@/lib/transactionMath";
 import { formatCurrency } from "@/lib/utils";
 
+const isReimbursementTx = (t: Transaction): t is Transaction =>
+  t.transaction_type === 'reimbursement' && t.status === 'posted';
+
 export const ReimbursementReport = () => {
   const { data = [] } = useTransactions();
-  const items = (data as Transaction[]).filter(isReimbursement);
+  const items = (data as Transaction[]).filter(isReimbursementTx);
   const total = items.reduce((s, t) => s + Number(t.amount), 0);
 
   return (
@@ -43,4 +46,3 @@ export const ReimbursementReport = () => {
     </Card>
   );
 };
-

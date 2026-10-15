@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { transactionSchema } from '@/lib/validation';
 import { useAuth } from '@/contexts/AuthContext';
+import { LEGACY_TYPE_BY_NEW, type TransactionType, type IncomeCategory } from '@/lib/transactionMath';
 import { z } from 'zod';
 
 export interface Transaction {
@@ -12,7 +13,23 @@ export interface Transaction {
   date: string;
   type: 'expense' | 'income';
   created_at: string;
+  // Extended financial-correctness fields (spec §1.2)
+  account_id: string | null;
+  status: 'pending' | 'posted';
+  transaction_type: TransactionType;
+  linked_transaction_id: string | null;
+  transfer_pair_id: string | null;
+  income_category: IncomeCategory | string | null;
+  reimbursement_expected_date: string | null;
+  user_id: string | null;
 }
+
+/** Loose input accepted by the add hooks; missing fields get defaults via `transactionSchema`. */
+export type TransactionInput = Omit<Transaction, 'id' | 'created_at'>;
+
+/** Compute the legacy `type` column from `transaction_type` (locked decision #2). */
+export const computeLegacyType = (transaction_type: TransactionType): 'expense' | 'income' =>
+  LEGACY_TYPE_BY_NEW[transaction_type];
 
 export const useTransactions = () => {
   return useQuery({
@@ -23,7 +40,7 @@ export const useTransactions = () => {
         .from('transactions')
         .select('*')
         .order('date', { ascending: false });
-      
+
       if (error) {
         console.error('Error fetching transactions:', error);
         throw error;
@@ -37,20 +54,26 @@ export const useTransactions = () => {
 export const useAddTransaction = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  
+
   return useMutation({
-    mutationFn: async (transaction: Omit<Transaction, 'id' | 'created_at'>) => {
+    mutationFn: async (transaction: Partial<TransactionInput> & { description: string; amount: number; date: string; category: string }) => {
       if (!user) throw new Error('You must be logged in to add transactions');
-      
-      // Validate input
+
       const validated = transactionSchema.parse({
         description: transaction.description,
         amount: transaction.amount,
         date: transaction.date,
         category: transaction.category,
-        type: transaction.type
+        type: transaction.type,
+        transaction_type: transaction.transaction_type ?? 'expense',
+        account_id: transaction.account_id,
+        status: transaction.status ?? 'posted',
+        linked_transaction_id: transaction.linked_transaction_id ?? null,
+        transfer_pair_id: transaction.transfer_pair_id ?? null,
+        income_category: transaction.income_category ?? null,
+        reimbursement_expected_date: transaction.reimbursement_expected_date ?? null,
       });
-      
+
       console.log('Adding transaction:', validated);
       const { data, error } = await supabase
         .from('transactions')
@@ -60,11 +83,18 @@ export const useAddTransaction = () => {
           date: validated.date,
           category: validated.category,
           type: validated.type,
-          user_id: user.id
+          transaction_type: validated.transaction_type,
+          account_id: validated.account_id,
+          status: validated.status,
+          linked_transaction_id: validated.linked_transaction_id ?? null,
+          transfer_pair_id: validated.transfer_pair_id ?? null,
+          income_category: validated.income_category ?? null,
+          reimbursement_expected_date: validated.reimbursement_expected_date ?? null,
+          user_id: user.id,
         }])
         .select()
         .single();
-      
+
       if (error) {
         console.error('Error adding transaction:', error);
         throw error;
@@ -75,6 +105,7 @@ export const useAddTransaction = () => {
     onSuccess: () => {
       console.log('Invalidating transactions query cache');
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
     },
   });
 };
@@ -82,19 +113,25 @@ export const useAddTransaction = () => {
 export const useAddMultipleTransactions = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  
+
   return useMutation({
-    mutationFn: async (transactions: Omit<Transaction, 'id' | 'created_at'>[]) => {
+    mutationFn: async (transactions: Partial<TransactionInput>[]) => {
       if (!user) throw new Error('You must be logged in to add transactions');
-      
-      // Validate all transactions
-      const validated = transactions.map(t => {
+
+      const validated = transactions.map((t: Partial<TransactionInput>) => {
         const v = transactionSchema.parse({
           description: t.description,
           amount: t.amount,
           date: t.date,
           category: t.category,
-          type: t.type
+          type: t.type,
+          transaction_type: t.transaction_type ?? 'expense',
+          account_id: t.account_id,
+          status: t.status ?? 'posted',
+          linked_transaction_id: t.linked_transaction_id ?? null,
+          transfer_pair_id: t.transfer_pair_id ?? null,
+          income_category: t.income_category ?? null,
+          reimbursement_expected_date: t.reimbursement_expected_date ?? null,
         });
         return {
           description: v.description,
@@ -102,16 +139,23 @@ export const useAddMultipleTransactions = () => {
           date: v.date,
           category: v.category,
           type: v.type,
-          user_id: user.id
+          transaction_type: v.transaction_type,
+          account_id: v.account_id,
+          status: v.status,
+          linked_transaction_id: v.linked_transaction_id ?? null,
+          transfer_pair_id: v.transfer_pair_id ?? null,
+          income_category: v.income_category ?? null,
+          reimbursement_expected_date: v.reimbursement_expected_date ?? null,
+          user_id: user.id,
         };
       });
-      
+
       console.log('Adding multiple transactions:', validated.length, 'records');
       const { data, error } = await supabase
         .from('transactions')
         .insert(validated)
         .select();
-      
+
       if (error) {
         console.error('Error adding multiple transactions:', error);
         throw error;
@@ -122,29 +166,25 @@ export const useAddMultipleTransactions = () => {
     onSuccess: (data) => {
       console.log('Invalidating transactions query cache after bulk insert');
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
     },
   });
 };
 
 export const useUpdateTransaction = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (transaction: Partial<Transaction> & { id: string }) => {
       console.log('Updating transaction:', transaction);
+      const { id, ...patch } = transaction;
       const { data, error } = await supabase
         .from('transactions')
-        .update({
-          description: transaction.description,
-          amount: transaction.amount,
-          category: transaction.category,
-          type: transaction.type,
-          date: transaction.date
-        })
-        .eq('id', transaction.id)
+        .update(patch)
+        .eq('id', id)
         .select()
         .single();
-      
+
       if (error) {
         console.error('Error updating transaction:', error);
         throw error;
@@ -155,13 +195,14 @@ export const useUpdateTransaction = () => {
     onSuccess: () => {
       console.log('Invalidating transactions query cache');
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
     },
   });
 };
 
 export const useDeleteMultipleTransactions = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (transactionIds: string[]) => {
       console.log('Deleting multiple transactions:', transactionIds.length, 'records');
@@ -169,7 +210,7 @@ export const useDeleteMultipleTransactions = () => {
         .from('transactions')
         .delete()
         .in('id', transactionIds);
-      
+
       if (error) {
         console.error('Error deleting multiple transactions:', error);
         throw error;
@@ -180,6 +221,92 @@ export const useDeleteMultipleTransactions = () => {
     onSuccess: () => {
       console.log('Invalidating transactions query cache after bulk delete');
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+    },
+  });
+};
+
+// ---- Transfer / refund / reimbursement hooks (Task 6) ----
+
+export interface AddTransferInput {
+  sourceAccountId: string;
+  destAccountId: string;
+  amount: number;
+  date: string;
+  description: string;
+  status?: 'pending' | 'posted';
+}
+
+export const useAddTransfer = () => {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (input: AddTransferInput) => {
+      if (!user) throw new Error('You must be logged in');
+      const { buildTransferRows } = await import('@/lib/transactionPayloads');
+      const [src, dst] = buildTransferRows({ ...input, userId: user.id });
+      const { data, error } = await supabase.from('transactions').insert([src, dst]).select();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+    },
+  });
+};
+
+export interface AddRefundInput {
+  originalId: string;
+  originalCategory: string;
+  accountId: string;
+  amount: number;
+  date: string;
+  description: string;
+  status?: 'pending' | 'posted';
+}
+
+export const useAddRefund = () => {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (input: AddRefundInput) => {
+      if (!user) throw new Error('You must be logged in');
+      const { buildRefundRow } = await import('@/lib/transactionPayloads');
+      const row = buildRefundRow({ ...input, userId: user.id });
+      const { data, error } = await supabase.from('transactions').insert([row]).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+    },
+  });
+};
+
+export interface AddReimbursementInput extends AddRefundInput {
+  expectedDate?: string | null;
+}
+
+export const useAddReimbursement = () => {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (input: AddReimbursementInput) => {
+      if (!user) throw new Error('You must be logged in');
+      const { buildReimbursementRow } = await import('@/lib/transactionPayloads');
+      const row = buildReimbursementRow({ ...input, userId: user.id });
+      const { data, error } = await supabase.from('transactions').insert([row]).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
     },
   });
 };

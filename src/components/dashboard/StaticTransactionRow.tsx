@@ -12,13 +12,28 @@ interface StaticTransactionRowProps {
   transaction: Transaction;
   isSelected: boolean;
   onSelectOne: (id: string, checked: boolean) => void;
-  onDelete: (ids: string[]) => Promise<any>;
+  onDelete: (ids: string[]) => Promise<unknown>;
   getCategoryColor: (category: string) => string;
   getParentCategory: (category: string) => string | null;
+  getAccountName: (accountId: string | null | undefined) => string;
   isReadOnly?: boolean;
 }
 
-const StaticTransactionRow = ({ transaction, isSelected, onSelectOne, onDelete, getCategoryColor, getParentCategory, isReadOnly }: StaticTransactionRowProps) => {
+const typeVariant = (t: Transaction) => {
+  if (t.transaction_type === 'expense') return 'destructive' as const;
+  if (t.transaction_type === 'income') return 'default' as const;
+  if (t.transaction_type === 'transfer') return 'secondary' as const;
+  return 'outline' as const;
+};
+
+const typeLabel = (t: Transaction) => {
+  if (t.transaction_type === 'transfer') return 'Transfer';
+  if (t.transaction_type === 'refund') return 'Refund';
+  if (t.transaction_type === 'reimbursement') return 'Reimbursement';
+  return t.type;
+};
+
+const StaticTransactionRow = ({ transaction, isSelected, onSelectOne, onDelete, getCategoryColor, getParentCategory, getAccountName, isReadOnly }: StaticTransactionRowProps) => {
   const handleDelete = () => {
     if (isReadOnly) return;
     onDelete([transaction.id])
@@ -30,10 +45,14 @@ const StaticTransactionRow = ({ transaction, isSelected, onSelectOne, onDelete, 
         toast.error('Failed to delete transaction.');
       });
   };
-  
+
+  const isPending = transaction.status === 'pending';
+  const rowClass = isPending ? 'opacity-60' : '';
+
   return (
-    <TableRow 
+    <TableRow
       data-state={isSelected ? "selected" : undefined}
+      className={rowClass}
     >
       <TableCell className="px-2">
         <Checkbox
@@ -49,8 +68,8 @@ const StaticTransactionRow = ({ transaction, isSelected, onSelectOne, onDelete, 
       <TableCell className="max-w-xs truncate">{transaction.description}</TableCell>
       <TableCell>
         <div className="flex items-center gap-2">
-          <div 
-            className="w-3 h-3 rounded-full flex-shrink-0" 
+          <div
+            className="w-3 h-3 rounded-full flex-shrink-0"
             style={{ backgroundColor: getCategoryColor(transaction.category) }}
           ></div>
           <span className="truncate">{transaction.category}</span>
@@ -62,13 +81,17 @@ const StaticTransactionRow = ({ transaction, isSelected, onSelectOne, onDelete, 
         </span>
       </TableCell>
       <TableCell>
-        <Badge variant={transaction.type === 'expense' ? 'destructive' : 'default'}>
-          {transaction.type}
-        </Badge>
+        <span className="truncate">{getAccountName(transaction.account_id)}</span>
+      </TableCell>
+      <TableCell>
+        <div className="flex flex-col gap-1">
+          <Badge variant={typeVariant(transaction)}>{typeLabel(transaction)}</Badge>
+          {isPending && <Badge variant="outline" className="text-[10px]">Pending</Badge>}
+        </div>
       </TableCell>
       <TableCell className="text-right font-medium">
-        <span className={transaction.type === 'expense' ? 'text-red-600' : 'text-green-600'}>
-          {transaction.type === 'expense' ? '-' : '+'}${Number(transaction.amount).toFixed(2)}
+        <span className={transaction.transaction_type === 'expense' ? 'text-red-600' : 'text-green-600'}>
+          {transaction.transaction_type === 'expense' ? '-' : '+'}${Number(transaction.amount).toFixed(2)}
         </span>
       </TableCell>
       <TableCell>

@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useParentCategories, useSubcategories } from '@/hooks/useCategories';
+import { isExpense, sumExpenses, sumTrueIncome, sumRefunds, sumReimbursements, netCashFlow, withPendingAsPosted } from '@/lib/transactionMath';
 import { DashboardSkeleton } from '@/components/ui/enhanced-skeleton';
 import { NoTransactionsEmpty } from '@/components/ui/empty-state';
 import MonthPicker from './overview/MonthPicker';
@@ -9,6 +10,9 @@ import TopCategoriesCard from './overview/TopCategoriesCard';
 import WeeklyBreakdownChart from './overview/WeeklyBreakdownChart';
 import RecentTransactions from './overview/RecentTransactions';
 import CategoryPieCard from './overview/CategoryPieCard';
+import { CashFlowCard } from './overview/CashFlowCard';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 interface ExpenseOverviewProps {
   setActiveTab: (tab: string) => void;
@@ -16,6 +20,7 @@ interface ExpenseOverviewProps {
 
 const ExpenseOverview = ({ setActiveTab }: ExpenseOverviewProps) => {
   const [selectedMonth, setSelectedMonth] = useState(new Date());
+  const [includePending, setIncludePending] = useState(false);
   const { data: transactions = [], isLoading: transactionsLoading } = useTransactions();
   const { data: parentCategories = [], isLoading: parentCategoriesLoading } = useParentCategories();
   const { data: subcategories = [], isLoading: subcategoriesLoading } = useSubcategories();
@@ -24,7 +29,9 @@ const ExpenseOverview = ({ setActiveTab }: ExpenseOverviewProps) => {
     return <DashboardSkeleton />;
   }
 
-  if (transactions.filter(t => t.type === 'expense').length === 0) {
+  const working = includePending ? withPendingAsPosted(transactions) : transactions;
+
+  if (working.filter(isExpense).length === 0) {
     return <NoTransactionsEmpty onImport={() => setActiveTab('import')} />;
   }
 
@@ -37,16 +44,16 @@ const ExpenseOverview = ({ setActiveTab }: ExpenseOverviewProps) => {
   const isCurrentMonth = now.getMonth() === month && now.getFullYear() === year;
   const daysElapsed = isCurrentMonth ? now.getDate() : daysInMonth;
 
-  // Filter to selected month expenses
-  const monthExpenses = transactions.filter(
-    (t) => t.date.startsWith(monthKey) && t.type === 'expense'
+  // Filter to selected month expenses (transfers/refunds/reimbursements excluded via isExpense)
+  const monthExpenses = working.filter(
+    (t) => t.date.startsWith(monthKey) && isExpense(t)
   );
 
   // Last month comparison — spending up to the same day
   const prevMonth = new Date(year, month - 1, 1);
   const prevKey = `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, '0')}`;
-  const lastMonthAtThisPoint = transactions
-    .filter((t) => t.date.startsWith(prevKey) && t.type === 'expense')
+  const lastMonthAtThisPoint = working
+    .filter((t) => t.date.startsWith(prevKey) && isExpense(t))
     .filter((t) => new Date(t.date).getDate() <= daysElapsed)
     .reduce((sum, t) => sum + Number(t.amount), 0);
 
@@ -73,21 +80,44 @@ const ExpenseOverview = ({ setActiveTab }: ExpenseOverviewProps) => {
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
   );
 
+  const trueIncome = sumTrueIncome(working);
+  const refunds = sumRefunds(working);
+  const reimbursements = sumReimbursements(working);
+  const cashFlow = netCashFlow(working);
+
   return (
     <div className="space-y-6">
       {/* Month Picker */}
       <div className="flex items-center justify-between">
         <MonthPicker selectedMonth={selectedMonth} onMonthChange={setSelectedMonth} />
+        <div className="flex items-center gap-2">
+          <Switch id="include-pending" checked={includePending} onCheckedChange={setIncludePending} />
+          <Label htmlFor="include-pending" className="text-sm">Include pending</Label>
+        </div>
       </div>
 
-      {/* Spending Pace Hero */}
-      <SpendingPaceCard
-        totalSpent={totalSpent}
-        totalBudget={totalBudget}
-        daysElapsed={daysElapsed}
-        daysInMonth={daysInMonth}
-        lastMonthAtThisPoint={lastMonthAtThisPoint}
-      />
+      {/* Cash Flow + Spending Pace Hero */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1">
+          <CashFlowCard
+            trueIncome={trueIncome}
+            expenses={totalSpent}
+            refunds={refunds}
+            reimbursements={reimbursements}
+            netCashFlow={cashFlow}
+            includePending={includePending}
+          />
+        </div>
+        <div className="lg:col-span-2">
+          <SpendingPaceCard
+            totalSpent={totalSpent}
+            totalBudget={totalBudget}
+            daysElapsed={daysElapsed}
+            daysInMonth={daysInMonth}
+            lastMonthAtThisPoint={lastMonthAtThisPoint}
+          />
+        </div>
+      </div>
 
       {/* Two-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

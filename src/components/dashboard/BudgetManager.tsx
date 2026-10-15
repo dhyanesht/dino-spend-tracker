@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useParentCategories, useSubcategories, useUpdateCategory } from '@/hooks/useCategories';
 import { useTransactions } from '@/hooks/useTransactions';
+import { isExpense } from '@/lib/transactionMath';
 import { toast } from 'sonner';
 
 const BudgetManager = () => {
@@ -12,7 +13,7 @@ const BudgetManager = () => {
   const { data: subcategories = [] } = useSubcategories();
   const { data: transactions = [] } = useTransactions();
   const updateCategory = useUpdateCategory();
-  
+
   const [editingBudgets, setEditingBudgets] = useState<Record<string, string>>({});
 
   const handleBudgetChange = (categoryId: string, value: string) => {
@@ -34,13 +35,13 @@ const BudgetManager = () => {
         id: categoryId,
         monthly_budget: parseFloat(newBudget)
       });
-      
+
       setEditingBudgets(prev => {
         const updated = { ...prev };
         delete updated[categoryId];
         return updated;
       });
-      
+
       toast.success('Budget updated successfully');
     } catch (error) {
       console.error('Error updating budget:', error);
@@ -51,23 +52,23 @@ const BudgetManager = () => {
   // Calculate current month spending for each category
   const getCurrentMonthSpending = (categoryName: string, isParent: boolean = false) => {
     const currentMonth = new Date().toISOString().slice(0, 7);
-    
+
     if (isParent) {
       // For parent categories, sum all subcategory spending
       const relatedSubcategories = subcategories.filter(sub => sub.parent_category === categoryName);
       return transactions
-        .filter(t => 
-          t.date.startsWith(currentMonth) && 
-          t.type === 'expense' &&
+        .filter(t =>
+          t.date.startsWith(currentMonth) &&
+          isExpense(t) &&
           relatedSubcategories.some(sub => sub.name === t.category)
         )
         .reduce((sum, t) => sum + Number(t.amount), 0);
     } else {
       // For subcategories, direct match
       return transactions
-        .filter(t => 
-          t.date.startsWith(currentMonth) && 
-          t.type === 'expense' &&
+        .filter(t =>
+          t.date.startsWith(currentMonth) &&
+          isExpense(t) &&
           t.category === categoryName
         )
         .reduce((sum, t) => sum + Number(t.amount), 0);

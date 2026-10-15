@@ -3,6 +3,7 @@ import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { useTransactions, useDeleteMultipleTransactions } from '@/hooks/useTransactions';
 import { useSubcategories } from '@/hooks/useCategories';
+import { useAccounts } from '@/hooks/useAccounts';
 import { useMobile } from '@/hooks/useMobile';
 import { useTransactionFilters } from '@/hooks/useTransactionFilters';
 import TransactionListHeader from './TransactionListHeader';
@@ -11,9 +12,10 @@ import TransactionTable from './TransactionTable';
 
 const TransactionsList = () => {
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
-  
+
   const { data: transactions = [], isLoading: transactionsLoading } = useTransactions();
   const { data: subcategories = [], isLoading: subcategoriesLoading } = useSubcategories();
+  const { data: accounts = [], isLoading: accountsLoading } = useAccounts();
   const deleteTransactions = useDeleteMultipleTransactions();
   const isMobile = useMobile();
 
@@ -24,7 +26,7 @@ const TransactionsList = () => {
     filteredTransactions,
   } = useTransactionFilters(transactions);
 
-  if (transactionsLoading || subcategoriesLoading) {
+  if (transactionsLoading || subcategoriesLoading || accountsLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full"></div>
@@ -40,6 +42,12 @@ const TransactionsList = () => {
   const getParentCategory = (categoryName: string) => {
     const subcategory = subcategories.find(cat => cat.name === categoryName);
     return subcategory?.parent_category || null;
+  };
+
+  const getAccountName = (accountId: string | null | undefined) => {
+    if (!accountId) return '—';
+    const account = accounts.find(a => a.id === accountId);
+    return account ? account.name : '—';
   };
 
   const handleSelectAll = (checked: boolean) => {
@@ -92,22 +100,24 @@ const TransactionsList = () => {
             setters={setters}
             handleResetFilters={handleResetFilters}
             subcategories={subcategories}
+            accounts={accounts}
             isMobile={isMobile}
           />
         </div>
 
-        <TransactionTable
-          transactions={filteredTransactions}
-          isMobile={isMobile}
-          selectedTransactions={selectedTransactions}
-          onSelectAll={handleSelectAll}
-          onSelectOne={handleSelectOne}
-          onDelete={deleteTransactions.mutateAsync}
-          getCategoryColor={getCategoryColor}
-          getParentCategory={getParentCategory}
-          isAllSelected={isAllSelected}
-          isSomeSelected={isSomeSelected}
-        />
+<TransactionTable
+            transactions={filteredTransactions}
+            isMobile={isMobile}
+            selectedTransactions={selectedTransactions}
+            onSelectAll={handleSelectAll}
+            onSelectOne={handleSelectOne}
+            onDelete={deleteTransactions.mutateAsync}
+            getCategoryColor={getCategoryColor}
+            getParentCategory={getParentCategory}
+            getAccountName={getAccountName}
+            isAllSelected={isAllSelected}
+            isSomeSelected={isSomeSelected}
+          />
       </Card>
     </div>
   );

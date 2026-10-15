@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useAccounts, useAddAccount, useDeleteAccount, useSetPrimaryAccount, useUpdateAccount } from "@/hooks/useAccounts";
 import { accountSchema } from "@/lib/validation";
 import { formatCurrency } from "@/lib/utils";
+import type { Account } from "@/hooks/useAccounts";
 
 const ACCOUNT_TYPES = ["checking","savings","credit_card","investment","cash","other"] as const;
 
@@ -29,6 +30,9 @@ export const AccountsManager = () => {
     setName(""); setIsPrimary(false);
   };
 
+  const handleToggleActive = (a: Account) =>
+    update.mutate({ id: a.id, updates: { is_active: !a.is_active } });
+
   return (
     <Card>
       <CardHeader><CardTitle>Accounts</CardTitle></CardHeader>
@@ -40,7 +44,7 @@ export const AccountsManager = () => {
           </div>
           <div className="space-y-1 min-w-[140px]">
             <Label>Type</Label>
-            <Select value={type} onValueChange={(v)=>setType(v as any)}>
+            <Select value={type} onValueChange={(v)=>setType(v as (typeof ACCOUNT_TYPES)[number])}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>{ACCOUNT_TYPES.map(t=> <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
             </Select>
@@ -56,7 +60,7 @@ export const AccountsManager = () => {
             <TableRow><TableHead>Name</TableHead><TableHead>Type</TableHead><TableHead>Balance</TableHead><TableHead>Primary</TableHead><TableHead>Active</TableHead><TableHead>Actions</TableHead></TableRow>
           </TableHeader>
           <TableBody>
-            {data.map((a:any)=>(
+            {data.map((a: Account)=>(
               <TableRow key={a.id}>
                 <TableCell>{a.name}</TableCell>
                 <TableCell>{a.type}</TableCell>
@@ -65,7 +69,7 @@ export const AccountsManager = () => {
                 <TableCell>{a.is_active ? "Yes" : "No"}</TableCell>
                 <TableCell className="flex gap-1 flex-wrap">
                   {!a.is_primary && <Button size="sm" variant="outline" onClick={()=>setPrimary.mutate(a.id)}>Set Primary</Button>}
-                  <Button size="sm" variant="outline" onClick={()=>update.mutate({ id: a.id, updates: { is_active: !a.is_active } })}>{a.is_active ? "Deactivate" : "Activate"}</Button>
+                  <Button size="sm" variant="outline" onClick={()=>handleToggleActive(a)}>{a.is_active ? "Deactivate" : "Activate"}</Button>
                   <Button size="sm" variant="destructive" onClick={()=>del.mutate(a.id)}>Delete</Button>
                 </TableCell>
               </TableRow>

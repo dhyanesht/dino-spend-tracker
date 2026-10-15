@@ -6,15 +6,30 @@ import { Button } from '@/components/ui/button';
 import { Trash2 } from 'lucide-react';
 import EditTransactionDialog from './EditTransactionDialog';
 import { Transaction } from '@/hooks/useTransactions';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
 interface SwipeableTransactionRowProps {
   transaction: Transaction;
   isSelected: boolean;
   onSelectOne: (id: string, checked: boolean) => void;
-  onDelete: (ids: string[]) => Promise<any>;
+  onDelete: (ids: string[]) => Promise<unknown>;
   getCategoryColor: (category: string) => string;
 }
+
+const typeVariant = (t: Transaction) => {
+  if (t.transaction_type === 'expense') return 'destructive' as const;
+  if (t.transaction_type === 'income') return 'default' as const;
+  if (t.transaction_type === 'transfer') return 'secondary' as const;
+  return 'outline' as const;
+};
+
+const typeLabel = (t: Transaction) => {
+  if (t.transaction_type === 'transfer') return 'Transfer';
+  if (t.transaction_type === 'refund') return 'Refund';
+  if (t.transaction_type === 'reimbursement') return 'Reimbursement';
+  return t.type;
+};
 
 const SwipeableTransactionRow = ({ transaction, isSelected, onSelectOne, onDelete, getCategoryColor }: SwipeableTransactionRowProps) => {
   const [swipeOffset, setSwipeOffset] = useState(0);
@@ -25,6 +40,9 @@ const SwipeableTransactionRow = ({ transaction, isSelected, onSelectOne, onDelet
     preventScrollOnSwipe: true,
     trackMouse: true,
   });
+
+  const isPending = transaction.status === 'pending';
+  const rowClass = isPending ? 'opacity-60' : '';
 
   const handleDelete = () => {
     onDelete([transaction.id])
@@ -38,7 +56,7 @@ const SwipeableTransactionRow = ({ transaction, isSelected, onSelectOne, onDelet
   };
 
   return (
-    <TableRow data-state={isSelected ? "selected" : undefined}>
+    <TableRow data-state={isSelected ? "selected" : undefined} className={rowClass}>
       <TableCell colSpan={8} className="p-0">
         <div className="relative overflow-hidden" {...handlers}>
           <div className="absolute top-0 right-0 h-full flex items-center z-0">
@@ -59,17 +77,19 @@ const SwipeableTransactionRow = ({ transaction, isSelected, onSelectOne, onDelet
             <div className="flex-grow min-w-0">
               <div className="flex justify-between items-start">
                 <span className="font-semibold truncate pr-2">{transaction.description}</span>
-                <span className={`font-medium whitespace-nowrap ${transaction.type === 'expense' ? 'text-red-600' : 'text-green-600'}`}>
-                  {transaction.type === 'expense' ? '-' : '+'}${Number(transaction.amount).toFixed(2)}
+                <span className={`font-medium whitespace-nowrap ${transaction.transaction_type === 'expense' ? 'text-red-600' : 'text-green-600'}`}>
+                  {transaction.transaction_type === 'expense' ? '-' : '+'}${Number(transaction.amount).toFixed(2)}
                 </span>
               </div>
               <div className="flex justify-between items-center text-sm text-slate-600 mt-1">
                 <div className="flex items-center gap-2 truncate">
-                   <div 
-                      className="w-2.5 h-2.5 rounded-full flex-shrink-0" 
+                   <div
+                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                       style={{ backgroundColor: getCategoryColor(transaction.category) }}
                     ></div>
                   <span className="truncate">{transaction.category}</span>
+                  <Badge variant={typeVariant(transaction)} className="text-[10px]">{typeLabel(transaction)}</Badge>
+                  {isPending && <Badge variant="outline" className="text-[10px]">Pending</Badge>}
                 </div>
                 <span>{new Date(transaction.date).toLocaleDateString()}</span>
               </div>

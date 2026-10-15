@@ -2,7 +2,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { PieChart, List, TrendingUp, DollarSign, Calendar, Upload } from 'lucide-react';
+import { PieChart, List, TrendingUp, DollarSign, Calendar, Upload, FileBarChart, Wallet } from 'lucide-react';
 
 interface BottomTabBarProps {
   activeTab: string;
@@ -14,7 +14,9 @@ const tabs = [
   { id: 'transactions', label: 'Transactions', icon: List },
   { id: 'trends', label: 'Trends', icon: TrendingUp },
   { id: 'budget', label: 'Budget', icon: DollarSign },
+  { id: 'reports', label: 'Reports', icon: FileBarChart },
   { id: 'categories', label: 'Categories', icon: Calendar },
+  { id: 'accounts', label: 'Accounts', icon: Wallet },
   { id: 'import', label: 'Import', icon: Upload },
 ];
 
@@ -25,7 +27,7 @@ export const BottomTabBar = ({ activeTab, onTabChange }: BottomTabBarProps) => {
         {tabs.slice(0, 3).map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
-          
+
           return (
             <Button
               key={tab.id}
@@ -46,7 +48,7 @@ export const BottomTabBar = ({ activeTab, onTabChange }: BottomTabBarProps) => {
         {tabs.slice(3).map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
-          
+
           return (
             <Button
               key={tab.id}

@@ -6,7 +6,7 @@ import { formatCurrency } from "@/lib/utils";
 
 const groupByOriginal = (txns: Transaction[]) => {
   const by: Record<string, { refunded: number; rows: Transaction[] }> = {};
-  txns.filter(isRefund).forEach((t) => {
+  txns.filter((t): t is Transaction => isRefund(t)).forEach((t) => {
     const key = t.linked_transaction_id || "unknown";
     if (!by[key]) by[key] = { refunded: 0, rows: [] };
     by[key].refunded += Number(t.amount);
@@ -17,7 +17,7 @@ const groupByOriginal = (txns: Transaction[]) => {
 
 export const RefundReport = () => {
   const { data = [] } = useTransactions();
-  const by = groupByOriginal(data);
+  const by = groupByOriginal(data as Transaction[]);
   const items = Object.entries(by);
   const total = items.reduce((s, [, v]) => s + v.refunded, 0);
 
@@ -53,4 +53,3 @@ export const RefundReport = () => {
     </Card>
   );
 };
-

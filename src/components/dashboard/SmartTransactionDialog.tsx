@@ -9,6 +9,7 @@ import { Plus } from 'lucide-react';
 import { useAddTransaction } from '@/hooks/useTransactions';
 import { useSubcategories } from '@/hooks/useCategories';
 import { useStoreByName, useAddStore } from '@/hooks/useStores';
+import { useDefaultAccount } from '@/hooks/useAccounts';
 import { toast } from 'sonner';
 
 const SmartTransactionDialog = () => {
@@ -25,6 +26,7 @@ const SmartTransactionDialog = () => {
   const { data: storeData } = useStoreByName(storeName);
   const addTransaction = useAddTransaction();
   const addStore = useAddStore();
+  const defaultAccount = useDefaultAccount();
 
   // Watch for store lookup results
   React.useEffect(() => {
@@ -57,13 +59,14 @@ const SmartTransactionDialog = () => {
         toast.success('Store category mapping saved for future use!');
       }
 
-      // Add the transaction
+      // Add the transaction — account_id defaults to the user's primary/checking account.
       await addTransaction.mutateAsync({
         description: description,
         amount: Number(amount),
         category: selectedCategory,
         date: date,
         type: 'expense',
+        account_id: defaultAccount?.id,
       });
 
       toast.success('Transaction added successfully!');
@@ -178,8 +181,8 @@ const SmartTransactionDialog = () => {
               </Select>
             </div>
           )}
-          <Button 
-            onClick={handleSubmit} 
+          <Button
+            onClick={handleSubmit}
             className="w-full"
             disabled={addTransaction.isPending || addStore.isPending}
           >
