@@ -15,7 +15,11 @@ const RootRedirect = () => {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return null;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full"></div>
+      </div>
+    );
   }
 
   return user ? <Navigate to="/dashboard" replace /> : <Navigate to="/auth" replace />;

@@ -3,7 +3,7 @@ export interface AccountLike {
   type?: string;
   is_active?: boolean;
   is_primary?: boolean;
-  [k: string]: any;
+  [k: string]: unknown;
 }
 
 export const setPrimaryMutations = (userId: string, id: string) => [

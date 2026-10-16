@@ -2,3 +2,6 @@ project_id = "oskhweltnnifpzxahyij"
 
 [functions.categorize-transactions]
 verify_jwt = true
+
+[functions.seed-default-accounts]
+verify_jwt = true

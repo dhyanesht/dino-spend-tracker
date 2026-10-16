@@ -28,7 +28,6 @@ interface Account {
 interface TransactionFiltersProps {
   filters: {
     category: string;
-    type: string;
     account: string;
     status: string;
     transactionType: string;
@@ -40,7 +39,6 @@ interface TransactionFiltersProps {
   };
   setters: {
     setCategory: (value: string) => void;
-    setType: (value: string) => void;
     setAccount: (value: string) => void;
     setStatus: (value: string) => void;
     setTransactionType: (value: string) => void;
@@ -212,16 +210,6 @@ const TransactionFilters = ({
         </Label>
       </div>
 
-      <Select value={filters.type} onValueChange={setters.setType}>
-        <SelectTrigger className="w-32">
-          <SelectValue placeholder="Type" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Types</SelectItem>
-          <SelectItem value="expense">Expense</SelectItem>
-          <SelectItem value="income">Income</SelectItem>
-        </SelectContent>
-      </Select>
       <Button variant="ghost" onClick={handleResetFilters}>
         <RotateCcw className="w-4 h-4 mr-2" />
         Reset

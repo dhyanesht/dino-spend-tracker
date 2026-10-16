@@ -35,7 +35,6 @@ export const useTransactions = () => {
   return useQuery({
     queryKey: ['transactions'],
     queryFn: async () => {
-      console.log('Fetching transactions...');
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
@@ -45,7 +44,6 @@ export const useTransactions = () => {
         console.error('Error fetching transactions:', error);
         throw error;
       }
-      console.log('Transactions fetched:', data?.length, 'records');
       return data as Transaction[];
     },
   });
@@ -74,7 +72,6 @@ export const useAddTransaction = () => {
         reimbursement_expected_date: transaction.reimbursement_expected_date ?? null,
       });
 
-      console.log('Adding transaction:', validated);
       const { data, error } = await supabase
         .from('transactions')
         .insert([{
@@ -99,11 +96,9 @@ export const useAddTransaction = () => {
         console.error('Error adding transaction:', error);
         throw error;
       }
-      console.log('Transaction added successfully:', data);
       return data;
     },
     onSuccess: () => {
-      console.log('Invalidating transactions query cache');
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
     },
@@ -150,7 +145,6 @@ export const useAddMultipleTransactions = () => {
         };
       });
 
-      console.log('Adding multiple transactions:', validated.length, 'records');
       const { data, error } = await supabase
         .from('transactions')
         .insert(validated)
@@ -160,11 +154,9 @@ export const useAddMultipleTransactions = () => {
         console.error('Error adding multiple transactions:', error);
         throw error;
       }
-      console.log('Multiple transactions added successfully:', data?.length, 'records');
       return data;
     },
     onSuccess: (data) => {
-      console.log('Invalidating transactions query cache after bulk insert');
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
     },
@@ -176,7 +168,6 @@ export const useUpdateTransaction = () => {
 
   return useMutation({
     mutationFn: async (transaction: Partial<Transaction> & { id: string }) => {
-      console.log('Updating transaction:', transaction);
       const { id, ...patch } = transaction;
       const { data, error } = await supabase
         .from('transactions')
@@ -189,13 +180,10 @@ export const useUpdateTransaction = () => {
         console.error('Error updating transaction:', error);
         throw error;
       }
-      console.log('Transaction updated successfully:', data);
       return data;
     },
     onSuccess: () => {
-      console.log('Invalidating transactions query cache');
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
     },
   });
 };
@@ -205,7 +193,6 @@ export const useDeleteMultipleTransactions = () => {
 
   return useMutation({
     mutationFn: async (transactionIds: string[]) => {
-      console.log('Deleting multiple transactions:', transactionIds.length, 'records');
       const { data, error } = await supabase
         .from('transactions')
         .delete()
@@ -215,13 +202,10 @@ export const useDeleteMultipleTransactions = () => {
         console.error('Error deleting multiple transactions:', error);
         throw error;
       }
-      console.log('Multiple transactions deleted successfully');
       return data;
     },
     onSuccess: () => {
-      console.log('Invalidating transactions query cache after bulk delete');
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
     },
   });
 };

@@ -80,7 +80,7 @@ const Dashboard = () => {
       <main className={`max-w-7xl mx-auto px-6 py-8 ${isMobile ? 'pb-32' : ''}`}>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           {/* Desktop Tab List - Hidden on Mobile */}
-          <TabsList className={`grid w-full grid-cols-8 mb-8 ${isMobile ? 'hidden' : ''}`}>
+          <TabsList className={`flex w-full flex-nowrap gap-2 mb-8 overflow-x-auto pb-2 ${isMobile ? 'hidden' : ''}`}>
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <PieChart className="w-4 h-4" />
               Overview

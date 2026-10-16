@@ -12,13 +12,6 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const body = await req.json().catch(() => ({} as any));
-    const user_id = body.user_id;
-
-    if (!user_id) {
-      throw new Error("Missing user_id");
-    }
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
@@ -28,6 +21,14 @@ Deno.serve(async (req: Request) => {
         },
       }
     );
+
+    // Verify the authenticated user's identity (spec: seed-category-groups pattern)
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      throw new Error("Unauthorized");
+    }
+
+    const user_id = user.id;
 
     const { data: existing } = await supabase
       .from("accounts")

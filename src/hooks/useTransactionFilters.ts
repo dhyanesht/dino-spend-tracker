@@ -6,7 +6,6 @@ import { Transaction } from '@/hooks/useTransactions';
 
 export const useTransactionFilters = (transactions: Transaction[]) => {
   const [filterCategory, setFilterCategory] = useState('all');
-  const [filterType, setFilterType] = useState('all');
   const [filterAccount, setFilterAccount] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterTransactionType, setFilterTransactionType] = useState('all');
@@ -18,7 +17,6 @@ export const useTransactionFilters = (transactions: Transaction[]) => {
 
   const handleResetFilters = () => {
     setFilterCategory('all');
-    setFilterType('all');
     setFilterAccount('all');
     setFilterStatus('all');
     setFilterTransactionType('all');
@@ -37,7 +35,6 @@ export const useTransactionFilters = (transactions: Transaction[]) => {
 
     return transactions.filter(transaction => {
       const matchesCategory = filterCategory === 'all' || transaction.category === filterCategory;
-      const matchesType = filterType === 'all' || transaction.type === filterType;
       const matchesAccount = filterAccount === 'all' || transaction.account_id === filterAccount;
       const matchesStatus = filterStatus === 'all' || transaction.status === filterStatus;
       const matchesTransactionType = filterTransactionType === 'all' || transaction.transaction_type === filterTransactionType;
@@ -52,17 +49,16 @@ export const useTransactionFilters = (transactions: Transaction[]) => {
       const matchesMinAmount = minAmount === '' || isNaN(parseFloat(minAmount)) || transactionAmount >= parseFloat(minAmount);
       const matchesMaxAmount = maxAmount === '' || isNaN(parseFloat(maxAmount)) || transactionAmount <= parseFloat(maxAmount);
 
-      return matchesCategory && matchesType && matchesAccount && matchesStatus &&
+      return matchesCategory && matchesAccount && matchesStatus &&
              matchesTransactionType && matchesPending && matchesSearch &&
              matchesStartDate && matchesEndDate && matchesMinAmount && matchesMaxAmount;
     });
-  }, [transactions, filterCategory, filterType, filterAccount, filterStatus,
+  }, [transactions, filterCategory, filterAccount, filterStatus,
       filterTransactionType, includePending, searchTerm, date, minAmount, maxAmount]);
 
   return {
     filters: {
       category: filterCategory,
-      type: filterType,
       account: filterAccount,
       status: filterStatus,
       transactionType: filterTransactionType,
@@ -74,7 +70,6 @@ export const useTransactionFilters = (transactions: Transaction[]) => {
     },
     setters: {
       setCategory: setFilterCategory,
-      setType: setFilterType,
       setAccount: setFilterAccount,
       setStatus: setFilterStatus,
       setTransactionType: setFilterTransactionType,
