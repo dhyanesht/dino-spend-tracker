@@ -82,7 +82,7 @@ export const useUndoImport = () => {
       if (!user) throw new Error('You must be logged in');
       const { data, error } = await supabase.rpc('cleanup_import_batch', { p_batch_id: batchId, p_user_id: user.id, p_force: false });
       if (error) throw error;
-      return (data as string[]) ?? [];
+      return data?.[0]?.deleted_transaction_ids ?? [];
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transactions'] });

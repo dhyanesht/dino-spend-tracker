@@ -108,7 +108,12 @@ export const importBatchSchema = z.object({
   error_code: z.string().nullable().optional(),
   error_message: z.string().nullable().optional(),
 });
-export type ImportBatchInsert = z.infer<typeof importBatchSchema>;
+export type ImportBatchInsert = z.infer<typeof importBatchSchema> & {
+  idempotency_key: string;
+  filename: string;
+  storage_path: string;
+  total_rows: number;
+};
 
 export const importBatchDetailSchema = z.object({
   import_batch_id: z.string().uuid(),
@@ -120,7 +125,12 @@ export const importBatchDetailSchema = z.object({
   error_code: z.string().nullable().optional(),
   matched_transaction_id: z.string().uuid().nullable().optional(),
 });
-export type ImportBatchDetailInsert = z.infer<typeof importBatchDetailSchema>;
+export type ImportBatchDetailInsert = z.infer<typeof importBatchDetailSchema> & {
+  import_batch_id: string;
+  row_number: number;
+  original_data: Record<string, string>;
+  status: ImportBatchDetailStatus;
+};
 
 export interface ImportBatch {
   id: string; user_id: string; idempotency_key: string; filename: string;

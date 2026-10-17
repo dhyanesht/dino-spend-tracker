@@ -1,0 +1,1 @@
+ALTER FUNCTION public.cleanup_import_batch(uuid,uuid,boolean) SECURITY INVOKER;
