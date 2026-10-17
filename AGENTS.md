@@ -38,5 +38,7 @@ supabase functions deploy  # Deploy edge functions
 5. **ISO month keys**: Month scoping via `YYYY-MM` string prefix, never BETWEEN.
 6. **Sequential imports**: Category CSV imports are sequential; do not batch.
 7. **Zero-division guard**: All ratio calculations return 0 when denominator is 0.
+8. **Import persistence**: Use tool-managed migrations and the Storage API for import history and private CSV files; never replay the legacy 20251016/20251017 import drafts, which lack grants and contain unsafe undo SQL.
+9. **Import undo**: Run undo as SECURITY INVOKER, verify the authenticated owner, retain audit rows, and block unrelated dependencies; caller-supplied user IDs must never authorize elevated deletion.
 
 See [`specs/agents/AGENTS.md`](./specs/agents/AGENTS.md) for full agent guidance and specialized personas.

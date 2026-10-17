@@ -697,12 +697,6 @@ const importTransactions = async () => {
         return;
       }
 
-       const transactionsToAdd = toImport.map(({ storeName, matchedStore, dedupStatus, dedupReason, dedupMatch, includeInImport, ...transaction }) => ({
-         ...transaction,
-         transaction_type: transaction.transaction_type ?? 'expense',
-         status: transaction.status ?? 'posted',
-         import_batch_id: batchId,
-       }));
        let batchId: string | null = null;
        if (selectedFile && user) {
          const contentHash = await computeContentHash(selectedFile);
@@ -738,10 +732,17 @@ const importTransactions = async () => {
             }
            const details = generateBatchDetails(csvData.slice(1), {}, batchId);
            if (details.length) {
-             await supabase.from('import_batch_details').insert(details);
+             const { error: detailError } = await supabase.from('import_batch_details').insert(details);
+             if (detailError) throw detailError;
            }
          }
        }
+       const transactionsToAdd = toImport.map(({ storeName, matchedStore, dedupStatus, dedupReason, dedupMatch, includeInImport, ...transaction }) => ({
+         ...transaction,
+         transaction_type: transaction.transaction_type ?? 'expense',
+         status: transaction.status ?? 'posted',
+         import_batch_id: batchId,
+       }));
        await addTransactionsMutation.mutateAsync(transactionsToAdd);
        if (batchId) {
          await updateImportBatch.mutateAsync({ batchId, updates: { status: 'completed', imported_count: toImport.length } });
