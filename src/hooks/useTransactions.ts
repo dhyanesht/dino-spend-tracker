@@ -22,6 +22,8 @@ export interface Transaction {
   income_category: IncomeCategory | string | null;
   reimbursement_expected_date: string | null;
   user_id: string | null;
+  import_batch_id: string | null;
+  import_batches?: { filename: string; import_timestamp: string } | null;
 }
 
 /** Loose input accepted by the add hooks; missing fields get defaults via `transactionSchema`. */
@@ -37,7 +39,7 @@ export const useTransactions = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('transactions')
-        .select('*')
+        .select('*, import_batches(filename, import_timestamp)')
         .order('date', { ascending: false });
 
       if (error) {
@@ -105,7 +107,7 @@ export const useAddTransaction = () => {
   });
 };
 
-export const useAddMultipleTransactions = () => {
+export const useAddMultipleTransactions = (importBatchId?: string) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
@@ -126,8 +128,9 @@ export const useAddMultipleTransactions = () => {
           linked_transaction_id: t.linked_transaction_id ?? null,
           transfer_pair_id: t.transfer_pair_id ?? null,
           income_category: t.income_category ?? null,
-          reimbursement_expected_date: t.reimbursement_expected_date ?? null,
-        });
+           reimbursement_expected_date: t.reimbursement_expected_date ?? null,
+           import_batch_id: importBatchId ?? null,
+         });
         return {
           description: v.description,
           amount: v.amount,
@@ -140,8 +143,9 @@ export const useAddMultipleTransactions = () => {
           linked_transaction_id: v.linked_transaction_id ?? null,
           transfer_pair_id: v.transfer_pair_id ?? null,
           income_category: v.income_category ?? null,
-          reimbursement_expected_date: v.reimbursement_expected_date ?? null,
-          user_id: user.id,
+           reimbursement_expected_date: v.reimbursement_expected_date ?? null,
+           import_batch_id: v.import_batch_id ?? importBatchId ?? null,
+           user_id: user.id,
         };
       });
 

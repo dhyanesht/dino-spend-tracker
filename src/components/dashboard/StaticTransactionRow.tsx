@@ -65,7 +65,12 @@ const StaticTransactionRow = ({ transaction, isSelected, onSelectOne, onDelete, 
       <TableCell className="font-medium">
         {new Date(transaction.date).toLocaleDateString()}
       </TableCell>
-      <TableCell className="max-w-xs truncate">{transaction.description}</TableCell>
+      <TableCell className="max-w-xs truncate">
+        {transaction.description}
+        {transaction.import_batches?.filename && (
+          <span className="text-xs text-muted-foreground block">From: {transaction.import_batches.filename}</span>
+        )}
+      </TableCell>
       <TableCell>
         <div className="flex items-center gap-2">
           <div

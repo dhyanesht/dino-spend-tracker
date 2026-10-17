@@ -9,6 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Upload, FileText, CheckCircle, XCircle, AlertCircle, Edit2, Save, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useAddMultipleTransactions } from '@/hooks/useTransactions';
+import { useCreateImportBatch, useUpdateImportBatch } from '@/hooks/useImportBatches';
+import { useAuth } from '@/contexts/AuthContext';
+import { uploadCsvToStorage, computeContentHash, generateBatchDetails } from '@/lib/csvImporterUtils';
 import { useCategories } from '@/hooks/useCategories';
 import { useStores, useAddMultipleStores, findBestStoreMatch, extractStoreName } from '@/hooks/useStores';
 import { useAccounts } from '@/hooks/useAccounts';
@@ -188,9 +191,15 @@ const CSVImporter = () => {
   const [editingStore, setEditingStore] = useState<string | null>(null);
   const [editCategory, setEditCategory] = useState('');
   const [isAiCategorizing, setIsAiCategorizing] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
+  const [activeBatchId, setActiveBatchId] = useState<string | undefined>(undefined);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const addTransactionsMutation = useAddMultipleTransactions();
+  const batchTransactionsMutation = useAddMultipleTransactions(activeBatchId);
+  const createImportBatch = useCreateImportBatch();
+  const updateImportBatch = useUpdateImportBatch();
+  const { user } = useAuth();
   const addStoresMutation = useAddMultipleStores();
   const { data: categories = [] } = useCategories();
   const { data: stores = [] } = useStores();
@@ -198,8 +207,10 @@ const CSVImporter = () => {
   const { toast } = useToast();
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+     const file = event.target.files?.[0];
+     if (!file) return;
+
+     setSelectedFile(file);
 
     if (!file.name.toLowerCase().endsWith('.csv')) {
       toast({
@@ -686,12 +697,55 @@ const importTransactions = async () => {
         return;
       }
 
-      const transactionsToAdd = toImport.map(({ storeName, matchedStore, dedupStatus, dedupReason, dedupMatch, includeInImport, ...transaction }) => ({
-        ...transaction,
-        transaction_type: transaction.transaction_type ?? 'expense',
-        status: transaction.status ?? 'posted',
-      }));
-      await addTransactionsMutation.mutateAsync(transactionsToAdd);
+       const transactionsToAdd = toImport.map(({ storeName, matchedStore, dedupStatus, dedupReason, dedupMatch, includeInImport, ...transaction }) => ({
+         ...transaction,
+         transaction_type: transaction.transaction_type ?? 'expense',
+         status: transaction.status ?? 'posted',
+         import_batch_id: batchId,
+       }));
+       let batchId: string | null = null;
+       if (selectedFile && user) {
+         const contentHash = await computeContentHash(selectedFile);
+         const idempotencyKey = crypto.randomUUID();
+         // check existing batch
+         const { data: existing } = await supabase.from('import_batches').select('id').eq('user_id', user.id).eq('content_hash', contentHash).maybeSingle();
+         if (existing?.id) {
+           batchId = existing.id;
+         } else {
+           const upload = await uploadCsvToStorage(selectedFile, user.id);
+            try {
+              batchId = await createImportBatch.mutateAsync({
+                idempotency_key: idempotencyKey,
+                filename: selectedFile.name,
+                file_size: selectedFile.size,
+                mime_type: selectedFile.type || 'text/csv',
+                content_hash: contentHash,
+                storage_bucket: upload.bucket,
+                storage_path: upload.path,
+                total_rows: parseResults.success.length,
+                valid_rows: parseResults.success.length,
+                parsed_count: parseResults.success.length,
+                imported_count: 0,
+                skipped_count: skippedCount,
+                duplicate_count: dedupCounts.duplicate,
+                ambiguous_count: dedupCounts.ambiguous,
+                failed_count: parseResults.errors.length,
+                status: 'processing',
+              });
+            } catch (err) {
+              const { data: raced } = await supabase.from('import_batches').select('id').eq('user_id', user.id).eq('content_hash', contentHash).maybeSingle();
+              if (raced?.id) batchId = raced.id; else throw err;
+            }
+           const details = generateBatchDetails(csvData.slice(1), {}, batchId);
+           if (details.length) {
+             await supabase.from('import_batch_details').insert(details);
+           }
+         }
+       }
+       await addTransactionsMutation.mutateAsync(transactionsToAdd);
+       if (batchId) {
+         await updateImportBatch.mutateAsync({ batchId, updates: { status: 'completed', imported_count: toImport.length } });
+       }
 
       toast({
         title: 'Import Successful',

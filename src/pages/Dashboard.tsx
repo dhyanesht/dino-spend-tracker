@@ -11,6 +11,7 @@ import TrendsAnalysis from '@/components/dashboard/TrendsAnalysis';
 import CategoryManager from '@/components/dashboard/CategoryManager';
 import TransactionsList from '@/components/dashboard/TransactionsList';
 import CSVImporter from '@/components/dashboard/CSVImporter';
+import ImportHistoryViewer from '@/components/dashboard/ImportHistoryViewer';
 import SmartTransactionDialog from '@/components/dashboard/SmartTransactionDialog';
 import BudgetManager from '@/components/dashboard/BudgetManager';
 import { RefundReport } from '@/components/dashboard/RefundReport';
@@ -164,6 +165,7 @@ const Dashboard = () => {
                   detect the format and categorize your transactions using your store preferences.
                 </p>
                 <CSVImporter />
+                <ImportHistoryViewer />
               </div>
             </Card>
           </TabsContent>

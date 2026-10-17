@@ -32,6 +32,7 @@ export const transactionSchema = z.object({
   transfer_pair_id: z.string().uuid().nullable().optional(),
   income_category: incomeCategorySchema.nullable().optional(),
   reimbursement_expected_date: z.string().regex(isoDate).nullable().optional(),
+  import_batch_id: z.string().uuid().nullable().optional(),
 }).refine((d) => {
   if (d.transaction_type === 'expense') return Boolean(d.category);
   if (d.transaction_type === 'transfer') return Boolean(d.transfer_pair_id);
@@ -81,3 +82,59 @@ export const storeSchema = z.object({
 export type TransactionInput = z.infer<typeof transactionSchema>;
 export type CategoryInput = z.infer<typeof categorySchema>;
 export type StoreInput = z.infer<typeof storeSchema>;
+
+export const importStatusSchema = z.enum(['processing','completed','partial','failed']);
+export type ImportStatus = z.infer<typeof importStatusSchema>;
+export const importBatchDetailStatusSchema = z.enum(['pending','imported','skipped','duplicate','ambiguous','invalid','failed']);
+export type ImportBatchDetailStatus = z.infer<typeof importBatchDetailStatusSchema>;
+
+export const importBatchSchema = z.object({
+  idempotency_key: z.string().uuid(),
+  filename: z.string().min(1),
+  file_size: z.number().positive().optional(),
+  mime_type: z.string().optional(),
+  content_hash: z.string().optional(),
+  storage_bucket: z.string().default('csv-imports'),
+  storage_path: z.string().min(1),
+  total_rows: z.number().int().nonnegative(),
+  valid_rows: z.number().int().nonnegative().default(0),
+  parsed_count: z.number().int().nonnegative().default(0),
+  imported_count: z.number().int().nonnegative().default(0),
+  skipped_count: z.number().int().nonnegative().default(0),
+  duplicate_count: z.number().int().nonnegative().default(0),
+  ambiguous_count: z.number().int().nonnegative().default(0),
+  failed_count: z.number().int().nonnegative().default(0),
+  status: importStatusSchema.default('processing'),
+  error_code: z.string().nullable().optional(),
+  error_message: z.string().nullable().optional(),
+});
+export type ImportBatchInsert = z.infer<typeof importBatchSchema>;
+
+export const importBatchDetailSchema = z.object({
+  import_batch_id: z.string().uuid(),
+  row_number: z.number().int().positive(),
+  original_data: z.record(z.any()),
+  parsed_transaction: z.record(z.any()).nullable().optional(),
+  status: importBatchDetailStatusSchema,
+  reason: z.string().nullable().optional(),
+  error_code: z.string().nullable().optional(),
+  matched_transaction_id: z.string().uuid().nullable().optional(),
+});
+export type ImportBatchDetailInsert = z.infer<typeof importBatchDetailSchema>;
+
+export interface ImportBatch {
+  id: string; user_id: string; idempotency_key: string; filename: string;
+  file_size: number | null; mime_type: string | null; content_hash: string | null;
+  storage_bucket: string; storage_path: string; import_timestamp: string;
+  total_rows: number; valid_rows: number; parsed_count: number; imported_count: number;
+  skipped_count: number; duplicate_count: number; ambiguous_count: number; failed_count: number;
+  status: ImportStatus; is_undone: boolean; undone_at: string | null; undo_actor: string | null;
+  undo_transaction_ids: string[] | null; retry_count: number; last_retry_at: string | null;
+  error_code: string | null; error_message: string | null; created_at: string; updated_at: string;
+}
+export interface ImportBatchDetail {
+  id: string; import_batch_id: string; row_number: number;
+  original_data: Record<string, unknown>; parsed_transaction: Record<string, unknown> | null;
+  status: ImportBatchDetailStatus; reason: string | null; error_code: string | null;
+  matched_transaction_id: string | null; retry_count: number; created_at: string;
+}
