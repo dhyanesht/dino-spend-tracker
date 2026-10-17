@@ -155,6 +155,155 @@ export type Database = {
         }
         Relationships: []
       }
+      import_batch_details: {
+        Row: {
+          created_at: string
+          error_code: string | null
+          id: string
+          import_batch_id: string
+          matched_transaction_id: string | null
+          original_data: Json
+          parsed_transaction: Json | null
+          reason: string | null
+          retry_count: number
+          row_number: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          error_code?: string | null
+          id?: string
+          import_batch_id: string
+          matched_transaction_id?: string | null
+          original_data: Json
+          parsed_transaction?: Json | null
+          reason?: string | null
+          retry_count?: number
+          row_number: number
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          error_code?: string | null
+          id?: string
+          import_batch_id?: string
+          matched_transaction_id?: string | null
+          original_data?: Json
+          parsed_transaction?: Json | null
+          reason?: string | null
+          retry_count?: number
+          row_number?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_batch_details_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_batches: {
+        Row: {
+          ambiguous_count: number
+          content_hash: string | null
+          created_at: string
+          duplicate_count: number
+          error_code: string | null
+          error_message: string | null
+          failed_count: number
+          file_size: number | null
+          filename: string
+          id: string
+          idempotency_key: string
+          import_timestamp: string
+          imported_count: number
+          is_undone: boolean
+          last_retry_at: string | null
+          mime_type: string | null
+          parsed_count: number
+          retry_count: number
+          skipped_count: number
+          status: string
+          storage_bucket: string
+          storage_path: string
+          total_rows: number
+          undo_actor: string | null
+          undo_transaction_ids: string[] | null
+          undone_at: string | null
+          updated_at: string
+          user_id: string
+          valid_rows: number
+        }
+        Insert: {
+          ambiguous_count?: number
+          content_hash?: string | null
+          created_at?: string
+          duplicate_count?: number
+          error_code?: string | null
+          error_message?: string | null
+          failed_count?: number
+          file_size?: number | null
+          filename: string
+          id?: string
+          idempotency_key: string
+          import_timestamp?: string
+          imported_count?: number
+          is_undone?: boolean
+          last_retry_at?: string | null
+          mime_type?: string | null
+          parsed_count?: number
+          retry_count?: number
+          skipped_count?: number
+          status?: string
+          storage_bucket?: string
+          storage_path: string
+          total_rows: number
+          undo_actor?: string | null
+          undo_transaction_ids?: string[] | null
+          undone_at?: string | null
+          updated_at?: string
+          user_id: string
+          valid_rows?: number
+        }
+        Update: {
+          ambiguous_count?: number
+          content_hash?: string | null
+          created_at?: string
+          duplicate_count?: number
+          error_code?: string | null
+          error_message?: string | null
+          failed_count?: number
+          file_size?: number | null
+          filename?: string
+          id?: string
+          idempotency_key?: string
+          import_timestamp?: string
+          imported_count?: number
+          is_undone?: boolean
+          last_retry_at?: string | null
+          mime_type?: string | null
+          parsed_count?: number
+          retry_count?: number
+          skipped_count?: number
+          status?: string
+          storage_bucket?: string
+          storage_path?: string
+          total_rows?: number
+          undo_actor?: string | null
+          undo_transaction_ids?: string[] | null
+          undone_at?: string | null
+          updated_at?: string
+          user_id?: string
+          valid_rows?: number
+        }
+        Relationships: []
+      }
       plaid_items: {
         Row: {
           access_token: string
@@ -215,6 +364,7 @@ export type Database = {
           date: string
           description: string
           id: string
+          import_batch_id: string | null
           income_category: string | null
           linked_transaction_id: string | null
           reimbursement_expected_date: string | null
@@ -232,6 +382,7 @@ export type Database = {
           date?: string
           description: string
           id?: string
+          import_batch_id?: string | null
           income_category?: string | null
           linked_transaction_id?: string | null
           reimbursement_expected_date?: string | null
@@ -249,6 +400,7 @@ export type Database = {
           date?: string
           description?: string
           id?: string
+          import_batch_id?: string | null
           income_category?: string | null
           linked_transaction_id?: string | null
           reimbursement_expected_date?: string | null
@@ -264,6 +416,13 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
             referencedColumns: ["id"]
           },
           {
@@ -301,6 +460,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_import_batch: {
+        Args: { p_batch_id: string; p_force?: boolean; p_user_id: string }
+        Returns: {
+          deleted_transaction_ids: string[]
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
